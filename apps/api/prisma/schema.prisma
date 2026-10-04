@@ -1,0 +1,415 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SortOrder {
+  ASC
+  DESC
+}
+
+enum AssetCondition {
+  GOOD
+  DAMAGED
+  LOST
+}
+
+enum StockOpnameStatus {
+  OPEN
+  IN_PROGRESS
+  VERIFIED
+  APPROVED
+  CLOSED
+  CANCELLED
+}
+
+enum AuthAction {
+  LOGIN
+  LOGOUT
+  SSO_CALLBACK
+  BACKCHANNEL_LOGOUT
+}
+
+enum AuthStatus {
+  SUCCESS
+  FAILED
+}
+
+model Role {
+  Id          Int          @id @default(autoincrement())
+  RoleName    String       @unique @db.VarChar(80)
+  Description String?      @db.VarChar(255)
+  IsActive    Boolean      @default(true)
+  CreatedAt   DateTime     @default(now())
+  CreatedBy   String
+  UpdatedAt   DateTime     @updatedAt
+  UpdatedBy   String
+  Users       AppUser[]
+  Permissions Permission[]
+
+  @@index([IsActive])
+}
+
+model Permission {
+  Id          Int      @id @default(autoincrement())
+  Action      String   @unique @db.VarChar(120)
+  Description String?  @db.VarChar(255)
+  CreatedAt   DateTime @default(now())
+  CreatedBy   String
+  UpdatedAt   DateTime @updatedAt
+  UpdatedBy   String
+  Roles       Role[]
+
+  @@index([Action])
+}
+
+model AppUser {
+  Id          String    @id @default(uuid())
+  SsoObjectId String    @unique
+  UserName    String    @db.VarChar(120)
+  Name        String    @db.VarChar(255)
+  Email       String?   @unique @db.VarChar(255)
+  PhoneNumber String?   @db.VarChar(32)
+  RoleId      Int?
+  Role        Role?     @relation(fields: [RoleId], references: [Id], onDelete: SetNull)
+  IsActive    Boolean   @default(true)
+  LastLogin   DateTime?
+  CreatedAt   DateTime  @default(now())
+  CreatedBy   String
+  UpdatedAt   DateTime  @updatedAt
+  UpdatedBy   String
+  AuthLogs    AuthLog[]
+
+  @@index([RoleId])
+  @@index([IsActive])
+}
+
+model Category {
+  Id          Int       @id @default(autoincrement())
+  Code        String?   @unique @db.VarChar(2)
+  Name        String    @unique @db.VarChar(120)
+  Description String?   @db.VarChar(255)
+  IsActive    Boolean   @default(true)
+  CreatedAt   DateTime  @default(now())
+  CreatedBy   String
+  UpdatedAt   DateTime  @updatedAt
+  UpdatedBy   String
+  DeletedAt   DateTime?
+  Assets      Asset[]
+
+  @@index([DeletedAt])
+}
+
+model Location {
+  Id        Int       @id @default(autoincrement())
+  Code      String?   @unique @db.VarChar(3)
+  Name      String    @db.VarChar(120)
+  Address   String?   @db.VarChar(255)
+  Floor     String?   @db.VarChar(50)
+  Room      String?   @db.VarChar(80)
+  IsActive  Boolean   @default(true)
+  CreatedAt DateTime  @default(now())
+  CreatedBy String
+  UpdatedAt DateTime  @updatedAt
+  UpdatedBy String
+  DeletedAt DateTime?
+  Assets    Asset[]
+
+  @@unique([Name, Floor, Room])
+  @@index([DeletedAt])
+}
+
+model AttributeDefinition {
+  Id          Int              @id @default(autoincrement())
+  Key         String           @unique @db.VarChar(120)
+  Description String?          @db.VarChar(255)
+  IsActive    Boolean          @default(true)
+  CreatedAt   DateTime         @default(now())
+  CreatedBy   String
+  UpdatedAt   DateTime         @updatedAt
+  UpdatedBy   String
+  DeletedAt   DateTime?
+  AssetValues AssetAttribute[]
+
+  @@index([DeletedAt])
+}
+
+model Asset {
+  Id                  Int                   @id @default(autoincrement())
+  AssetTag            String                @unique @db.VarChar(80)
+  HostName            String?               @db.VarChar(120)
+  Name                String                @db.VarChar(255)
+  Brand               String?               @db.VarChar(120)
+  Model               String?               @db.VarChar(120)
+  SerialNumber        String?               @db.VarChar(160)
+  Notes               String?               @db.Text
+  CategoryId          Int?
+  Category            Category?             @relation(fields: [CategoryId], references: [Id], onDelete: SetNull)
+  LocationId          Int?
+  Location            Location?             @relation(fields: [LocationId], references: [Id], onDelete: SetNull)
+  DepartmentCode      String?               @db.VarChar(15)
+  CurrentEmployeeNo   String?               @db.VarChar(30)
+  CurrentEmployeeName String?               @db.VarChar(255)
+  WarrantyStart       DateTime?
+  WarrantyEnd         DateTime?
+  PurchaseDate        DateTime?
+  IsActive            Boolean               @default(true)
+  IsDisposed          Boolean               @default(false)
+  CreatedAt           DateTime              @default(now())
+  CreatedBy           String
+  UpdatedAt           DateTime              @updatedAt
+  UpdatedBy           String
+  DeletedAt           DateTime?
+  Attributes          AssetAttribute[]
+  UserAssignments     AssetUserAssignment[]
+  MaintenanceRecords  Maintenance[]
+  Licenses            License[]
+  Disposals           Disposal[]
+  StockOpnameDetails  StockOpnameDetail[]
+  Attachments         AssetAttachment[]
+
+  @@index([Name])
+  @@index([SerialNumber])
+  @@index([CategoryId])
+  @@index([LocationId])
+  @@index([DepartmentCode])
+  @@index([CurrentEmployeeNo])
+  @@index([IsActive, IsDisposed])
+  @@index([DeletedAt])
+}
+
+model AssetAttachment {
+  Id               Int       @id @default(autoincrement())
+  AssetId          Int
+  Asset            Asset     @relation(fields: [AssetId], references: [Id], onDelete: Restrict)
+  FileName         String    @db.VarChar(255)
+  FilePath         String    @db.VarChar(2048)
+  OriginalFileName String    @db.VarChar(255)
+  FileSize         Int
+  MimeType         String    @db.VarChar(120)
+  CreatedAt        DateTime  @default(now())
+  CreatedBy        String
+  DeletedAt        DateTime?
+  DeletedBy        String?
+
+  @@index([AssetId, DeletedAt])
+  @@index([DeletedAt])
+}
+
+model AssetAttribute {
+  Id                    Int                 @id @default(autoincrement())
+  AssetId               Int
+  Asset                 Asset               @relation(fields: [AssetId], references: [Id], onDelete: Cascade)
+  AttributeDefinitionId Int
+  AttributeDefinition   AttributeDefinition @relation(fields: [AttributeDefinitionId], references: [Id], onDelete: Restrict)
+  Value                 String              @db.Text
+  CreatedAt             DateTime            @default(now())
+  CreatedBy             String
+  UpdatedAt             DateTime            @updatedAt
+  UpdatedBy             String
+
+  @@unique([AssetId, AttributeDefinitionId])
+  @@index([AttributeDefinitionId])
+}
+
+model AssetUserAssignment {
+  Id           String    @id @default(uuid())
+  AssetId      Int
+  Asset        Asset     @relation(fields: [AssetId], references: [Id], onDelete: Restrict)
+  EmployeeNo   String    @db.VarChar(30)
+  EmployeeName String    @db.VarChar(255)
+  StartUsed    DateTime  @default(now())
+  LastUsed     DateTime?
+  Notes        String?   @db.VarChar(500)
+  CreatedAt    DateTime  @default(now())
+  CreatedBy    String
+  UpdatedAt    DateTime  @updatedAt
+  UpdatedBy    String
+
+  @@index([AssetId, LastUsed])
+  @@index([EmployeeNo, LastUsed])
+}
+
+model Maintenance {
+  Id              String    @id @default(uuid())
+  AssetId         Int
+  Asset           Asset     @relation(fields: [AssetId], references: [Id], onDelete: Restrict)
+  MaintenanceDate DateTime
+  MaintenanceEnd  DateTime?
+  MaintenanceType String    @db.VarChar(100)
+  IsClosed        Boolean   @default(false)
+  SupportFile     String?   @db.VarChar(2048)
+  Problem         String?   @db.Text
+  Description     String?   @db.Text
+  Cost            Decimal?  @db.Decimal(15, 2)
+  Vendor          String?   @db.VarChar(255)
+  IsInternal      Boolean   @default(false)
+  PerformedBy     String?   @db.VarChar(255)
+  CreatedAt       DateTime  @default(now())
+  CreatedBy       String
+  UpdatedAt       DateTime  @updatedAt
+  UpdatedBy       String
+  DeletedAt       DateTime?
+
+  @@index([AssetId, IsClosed])
+  @@index([MaintenanceDate])
+  @@index([DeletedAt])
+}
+
+model License {
+  Id                   Int       @id @default(autoincrement())
+  AssetId              Int?
+  Asset                Asset?    @relation(fields: [AssetId], references: [Id], onDelete: SetNull)
+  LicenseName          String    @db.VarChar(255)
+  LicenseKeyCiphertext String?   @db.Text
+  LicenseType          String    @db.VarChar(100)
+  LicenseRemark        String?   @db.Text
+  SupportFile          String?   @db.VarChar(2048)
+  StartDate            DateTime?
+  EndDate              DateTime?
+  IsActive             Boolean   @default(true)
+  CreatedAt            DateTime  @default(now())
+  CreatedBy            String
+  UpdatedAt            DateTime  @updatedAt
+  UpdatedBy            String
+  DeletedAt            DateTime?
+
+  @@index([AssetId])
+  @@index([EndDate])
+  @@index([DeletedAt])
+}
+
+model Disposal {
+  Id           String   @id @default(uuid())
+  AssetId      Int
+  Asset        Asset    @relation(fields: [AssetId], references: [Id], onDelete: Restrict)
+  DisposalDate DateTime
+  Reason       String   @db.Text
+  SupportFile  String?  @db.VarChar(2048)
+  CreatedAt    DateTime @default(now())
+  CreatedBy    String
+
+  @@index([AssetId])
+  @@index([DisposalDate])
+}
+
+model StockOpname {
+  Id          Int                 @id @default(autoincrement())
+  DocNumber   String              @unique @db.VarChar(80)
+  OpnameDate  DateTime
+  Period      String?             @db.VarChar(80)
+  Status      StockOpnameStatus   @default(OPEN)
+  Remark      String?             @db.Text
+  VerifiedBy  String?
+  VerifiedAt  DateTime?
+  ApprovedBy  String?
+  ApprovedAt  DateTime?
+  ClosedBy    String?
+  ClosedAt    DateTime?
+  CancelledBy String?
+  CancelledAt DateTime?
+  CreatedAt   DateTime            @default(now())
+  CreatedBy   String
+  UpdatedAt   DateTime            @updatedAt
+  UpdatedBy   String
+  Details     StockOpnameDetail[]
+
+  @@index([Status])
+  @@index([OpnameDate])
+}
+
+model StockOpnameDetail {
+  Id            Int             @id @default(autoincrement())
+  StockOpnameId Int
+  StockOpname   StockOpname     @relation(fields: [StockOpnameId], references: [Id], onDelete: Cascade)
+  AssetId       Int
+  Asset         Asset           @relation(fields: [AssetId], references: [Id], onDelete: Restrict)
+  IsPresent     Boolean?
+  Condition     AssetCondition?
+  Notes         String?         @db.Text
+  PictureUrl    String?         @db.VarChar(2048)
+  ScannedAt     DateTime?
+  ScannedBy     String?
+  CreatedAt     DateTime        @default(now())
+  UpdatedAt     DateTime        @updatedAt
+
+  @@unique([StockOpnameId, AssetId])
+  @@index([AssetId])
+  @@index([ScannedAt])
+}
+
+model LogProcess {
+  ProcessId         String             @id @db.VarChar(80)
+  FunctionId        String             @db.VarChar(120)
+  FunctionName      String             @db.VarChar(255)
+  RequestId         String?            @db.VarChar(128)
+  ProcessStatus     String             @db.VarChar(20)
+  ProcessStart      DateTime
+  ProcessEnd        DateTime?
+  ProcessDate       DateTime
+  CreatedAt         DateTime           @default(now())
+  CreatedBy         String?
+  LogProcessDetails LogProcessDetail[]
+  AuditEvents       ActionAuditEvent[]
+
+  @@index([FunctionId])
+  @@index([RequestId])
+  @@index([ProcessDate])
+  @@index([ProcessStatus])
+}
+
+model LogProcessDetail {
+  ProcessDetailId BigInt     @id @default(autoincrement())
+  ProcessId       String     @db.VarChar(80)
+  LogProcess      LogProcess @relation(fields: [ProcessId], references: [ProcessId], onDelete: Cascade)
+  MessageId       String     @db.VarChar(80)
+  Message         String     @db.Text
+  Type            String     @db.VarChar(20)
+  Location        String     @db.VarChar(255)
+  ProcessDate     DateTime
+  CreatedAt       DateTime   @default(now())
+
+  @@index([ProcessId])
+  @@index([ProcessDate])
+  @@index([Type])
+}
+
+model ActionAuditEvent {
+  Id          String      @id @default(uuid())
+  SourceType  String      @db.VarChar(120)
+  SourceId    String      @db.VarChar(120)
+  Action      String      @db.VarChar(80)
+  Actor       String?
+  ActorSource String      @db.VarChar(40)
+  RequestId   String?     @db.VarChar(128)
+  ProcessId   String?
+  Process     LogProcess? @relation(fields: [ProcessId], references: [ProcessId], onDelete: Restrict)
+  Before      Json?
+  After       Json?
+  CreatedAt   DateTime    @default(now())
+
+  @@index([SourceType, SourceId, CreatedAt])
+  @@index([RequestId])
+  @@index([ProcessId])
+}
+
+model AuthLog {
+  Id            String     @id @default(uuid())
+  AppUserId     String?
+  AppUser       AppUser?   @relation(fields: [AppUserId], references: [Id], onDelete: SetNull)
+  Action        AuthAction
+  Status        AuthStatus
+  FailureReason String?    @db.VarChar(255)
+  RequestId     String?    @db.VarChar(128)
+  IpAddress     String?    @db.VarChar(45)
+  UserAgent     String?    @db.VarChar(500)
+  CreatedAt     DateTime   @default(now())
+
+  @@index([AppUserId])
+  @@index([CreatedAt])
+}

@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-itam}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-itam-development}
+      POSTGRES_DB: ${POSTGRES_DB:-itam}
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - itam-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-itam} -d ${POSTGRES_DB:-itam}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - itam-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-itam}:${POSTGRES_PASSWORD:-itam-development}@postgres:5432/${POSTGRES_DB:-itam}?schema=public
+      PORT: 7600
+      VUTEQ_SSO_BASE_URL: ${VUTEQ_SSO_BASE_URL:-https://sso.vuteq.co.id}
+      VUTEQ_SSO_SECRET: ${VUTEQ_SSO_SECRET:-}
+      VUTEQ_SSO_ALLOWED_CLIENT_IDS: ${VUTEQ_SSO_ALLOWED_CLIENT_IDS:-}
+      ESSA_API_URL: ${ESSA_API_URL:-https://essa.vuteq.co.id/connector}
+      ESSA_API_KEY: ${ESSA_API_KEY:-}
+      ESSA_API_TIMEOUT_MS: ${ESSA_API_TIMEOUT_MS:-5000}
+      NAS_HOST: ${NAS_HOST:-}
+      NAS_PORT: ${NAS_PORT:-5001}
+      NAS_PROTOCOL: ${NAS_PROTOCOL:-https}
+      NAS_USER: ${NAS_USER:-}
+      NAS_PASSWORD: ${NAS_PASSWORD:-}
+      NAS_SMB_SHARE: ${NAS_SMB_SHARE:-AssetStorage}
+      NAS_SMB_SUBFOLDER: ${NAS_SMB_SUBFOLDER:-ItAssetAttachments}
+      NAS_BASE_URL: ${NAS_BASE_URL:-}
+      LICENSE_ENCRYPTION_KEY: ${LICENSE_ENCRYPTION_KEY:-}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      SWAGGER_API_KEY: ${SWAGGER_API_KEY:-}
+    ports:
+      - "7600:7600"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      API_URL: http://api:7600
+      VUTEQ_SSO_BASE_URL: ${VUTEQ_SSO_BASE_URL:-https://sso.vuteq.co.id}
+      VUTEQ_SSO_SECRET: ${VUTEQ_SSO_SECRET:-}
+      VUTEQ_SSO_PUBLIC_ORIGIN: ${VUTEQ_SSO_PUBLIC_ORIGIN:-http://localhost:3000}
+      VUTEQ_SSO_TRUST_PROXY: ${VUTEQ_SSO_TRUST_PROXY:-false}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      VUTEQ_SSO_REDIS_DB: ${VUTEQ_SSO_REDIS_DB:-0}
+      VUTEQ_SSO_REDIS_KEY_PREFIX: ${VUTEQ_SSO_REDIS_KEY_PREFIX:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+volumes:
+  itam-postgres:
+  itam-redis:

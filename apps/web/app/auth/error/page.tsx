@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function AuthError() { return <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#263545", color: "white" }}><div style={{ textAlign: "center" }}><h1>Sign-in failed</h1><p>Vuteq SSO could not complete the sign-in request.</p><Link href="/auth/login" style={{ color: "#fff", textDecoration: "underline" }}>Try again</Link></div></main>; }

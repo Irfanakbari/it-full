@@ -1,0 +1,23 @@
+{
+  "name": "it-asset-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.26.2",
+  "scripts": {
+    "dev:web": "pnpm --filter @itam/web dev",
+    "dev:api": "pnpm --filter @itam/api start:dev",
+    "build": "pnpm -r --if-present run build",
+    "build:web": "pnpm --filter @itam/web build",
+    "build:api": "pnpm --filter @itam/api build",
+    "lint": "pnpm -r --if-present run lint",
+    "lint:web": "pnpm --filter @itam/web lint",
+    "lint:api": "pnpm --filter @itam/api lint",
+    "test": "pnpm -r --if-present run test",
+    "test:api": "pnpm --filter @itam/api test",
+    "test:e2e:api": "pnpm --filter @itam/api test:e2e",
+    "prisma:validate": "pnpm --filter @itam/api exec prisma validate",
+    "prisma:generate": "pnpm --filter @itam/api exec prisma generate",
+    "prisma:migrate:deploy": "pnpm --filter @itam/api exec prisma migrate deploy",
+    "prisma:seed": "pnpm --filter @itam/api prisma:seed"
+  }
+}
