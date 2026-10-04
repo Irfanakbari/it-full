@@ -16,13 +16,6 @@ FROM dependencies AS build
 
 COPY apps apps
 
-ARG API_URL
-ARG VUTEQ_SSO_BASE_URL
-ARG VUTEQ_SSO_PUBLIC_ORIGIN
-ENV API_URL=${API_URL}
-ENV VUTEQ_SSO_BASE_URL=${VUTEQ_SSO_BASE_URL}
-ENV VUTEQ_SSO_PUBLIC_ORIGIN=${VUTEQ_SSO_PUBLIC_ORIGIN}
-
 WORKDIR /workspace/apps/api
 RUN DATABASE_URL=postgresql://build:build@localhost:5432/build pnpm exec prisma generate && pnpm run build
 

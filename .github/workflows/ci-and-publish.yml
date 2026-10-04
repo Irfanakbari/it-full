@@ -92,10 +92,6 @@ jobs:
 
       - name: Build web
         run: pnpm --dir apps/web exec next build --webpack
-        env:
-          API_URL: ${{ vars.API_URL || secrets.API_URL }}
-          VUTEQ_SSO_BASE_URL: ${{ vars.VUTEQ_SSO_BASE_URL || secrets.VUTEQ_SSO_BASE_URL }}
-          VUTEQ_SSO_PUBLIC_ORIGIN: ${{ vars.VUTEQ_SSO_PUBLIC_ORIGIN || secrets.VUTEQ_SSO_PUBLIC_ORIGIN }}
 
   publish:
     name: Publish ITAM container
@@ -140,7 +136,3 @@ jobs:
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.image.outputs.environment }}
           cache-from: type=gha,scope=it-full
           cache-to: type=gha,mode=max,scope=it-full
-          build-args: |
-            API_URL=${{ vars.API_URL || secrets.API_URL }}
-            VUTEQ_SSO_BASE_URL=${{ vars.VUTEQ_SSO_BASE_URL || secrets.VUTEQ_SSO_BASE_URL }}
-            VUTEQ_SSO_PUBLIC_ORIGIN=${{ vars.VUTEQ_SSO_PUBLIC_ORIGIN || secrets.VUTEQ_SSO_PUBLIC_ORIGIN }}

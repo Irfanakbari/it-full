@@ -3,10 +3,6 @@ x-it-full: &it-full
   build:
     context: .
     dockerfile: Dockerfile
-    args:
-      API_URL: ${API_URL:-http://api:7600}
-      VUTEQ_SSO_BASE_URL: ${VUTEQ_SSO_BASE_URL:-https://sso.vuteq.co.id}
-      VUTEQ_SSO_PUBLIC_ORIGIN: ${VUTEQ_SSO_PUBLIC_ORIGIN:-http://localhost:3000}
 
 services:
   postgres:
