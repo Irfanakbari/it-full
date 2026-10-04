@@ -99,6 +99,16 @@ body { background: var(--background); color: var(--foreground); font-family: Ari
 .dashboard-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .dashboard-chart-legend i { width: 18px; height: 3px; border-radius: 2px; background: #4c6a85; }
 .dashboard-chart-legend .dashboard-legend-maintenance { background: #d08b3e; }
+.dashboard-donut-layout { min-height: 246px; display: grid; grid-template-columns: minmax(220px, .95fr) minmax(180px, 1.05fr); align-items: center; gap: 8px; }
+.dashboard-donut-chart { position: relative; min-width: 0; }
+.dashboard-donut-total { position: absolute; inset: 50% auto auto 50%; display: grid; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+.dashboard-donut-total strong { color: #293241; font-size: 24px; line-height: 1; font-variant-numeric: tabular-nums; }
+.dashboard-donut-total span { margin-top: 4px; color: #7a858d; font-size: 10px; }
+.dashboard-donut-legend { min-width: 0; display: grid; gap: 9px; }
+.dashboard-donut-legend > div { min-width: 0; display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.dashboard-donut-legend i { width: 8px; height: 8px; border-radius: 2px; }
+.dashboard-donut-legend span { overflow: hidden; color: #53616b; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-donut-legend strong { color: #293241; font-size: 12px; font-variant-numeric: tabular-nums; }
 .dashboard-stock { padding-bottom: 14px; border-bottom: 1px solid #e5e9eb; }
 .dashboard-stock__top { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 11px; }
 .dashboard-stock__icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 5px; color: #fff; background: #4c6a85; font-size: 17px; }
@@ -144,6 +154,8 @@ body { background: var(--background); color: var(--foreground); font-family: Ari
   .dashboard-priority:nth-child(2n) { border-right: 0; }
   .dashboard-priority:nth-last-child(-n+3) { border-bottom: 1px solid #e6eaec; }
   .dashboard-priority:nth-last-child(-n+2) { border-bottom: 0; }
+  .dashboard-donut-layout { grid-template-columns: 1fr; }
+  .dashboard-donut-legend { grid-template-columns: 1fr 1fr; padding: 0 8px 8px; }
 }
 @media (max-width: 520px) {
   .dashboard-heading p { max-width: 240px; }

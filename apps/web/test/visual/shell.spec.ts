@@ -17,7 +17,7 @@ test("signed-out request redirects seamlessly to SSO login", async ({ page }) =>
 
 test("ANSEI-aligned shell and dashboard", async ({ page }, testInfo) => {
   await authenticate(page);
-  await page.route("**/api/proxy/v1/dashboard", (route) => route.fulfill({ json: envelope({ Kpi: { ActiveAssets: 142, InactiveAssets: 8, DisposedAssets: 19, ExpiredWarranty: 4, ExpiringWarranty: 7, UnassignedAssets: 12, OpenMaintenance: 5, ExpiredLicenses: 2, ExpiringLicenses: 3 }, Condition: { LOST: 1, DAMAGED: 4 }, CategoryDistribution: [{ Name: "Laptop", Total: 72 }, { Name: "Desktop", Total: 45 }, { Name: "Network", Total: 25 }], LocationDistribution: [], RecentAssets: [{ Id: 1, AssetTag: "IT-0001", Name: "Engineering Laptop", IsActive: true }], RecentMaintenance: [], ActiveStockOpname: { DocNumber: "SO-2026-001", Status: "IN_PROGRESS" }, AssetTrend: [{ Month: "2026-08-01", Total: 11 }, { Month: "2026-09-01", Total: 14 }], MaintenanceTrend: [{ Month: "2026-08-01", Total: 3 }, { Month: "2026-09-01", Total: 5 }] }, "/v1/dashboard") }));
+  await page.route("**/api/proxy/v1/dashboard", (route) => route.fulfill({ json: envelope({ Kpi: { ActiveAssets: 142, InactiveAssets: 8, DisposedAssets: 19, ExpiredWarranty: 4, ExpiringWarranty: 7, UnassignedAssets: 12, OpenMaintenance: 5, ExpiredLicenses: 2, ExpiringLicenses: 3 }, Condition: { LOST: 1, DAMAGED: 4 }, CategoryDistribution: [{ Name: "Laptop", Total: 72 }, { Name: "Desktop", Total: 45 }, { Name: "Network", Total: 25 }], LocationDistribution: [{ Name: "Head Office", Total: 91 }, { Name: "Warehouse", Total: 51 }], DepartmentDistribution: [{ Name: "Information Technology", Code: "IT", Total: 64 }, { Name: "Production", Code: "PRD", Total: 78 }], RecentAssets: [{ Id: 1, AssetTag: "IT-0001", Name: "Engineering Laptop", IsActive: true }], RecentMaintenance: [], UpcomingLicenses: [{ Id: 1, LicenseName: "Microsoft 365", LicenseType: "Subscription", EndDate: "2026-10-18", Asset: null }], ActiveStockOpname: { DocNumber: "SO-2026-001", Status: "IN_PROGRESS" }, AssetTrend: [{ Month: "2026-08-01", Total: 11 }, { Month: "2026-09-01", Total: 14 }], MaintenanceTrend: [{ Month: "2026-08-01", Total: 3 }, { Month: "2026-09-01", Total: 5 }] }, "/v1/dashboard") }));
   await page.goto(`${BASE_PATH}/apps`);
   await expect(page.getByText("IT Asset Management System").first()).toBeVisible();
   await expect(page.locator(".ansei-sider")).toHaveCSS("width", "300px");
@@ -26,6 +26,9 @@ test("ANSEI-aligned shell and dashboard", async ({ page }, testInfo) => {
   await expect(page.getByText("Transaction Data", { exact: true })).toBeVisible();
   await expect(page.getByText("System Administration", { exact: true })).toBeVisible();
   await expect(page.getByText("Device Loan", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Assets by location", { exact: true })).toBeVisible();
+  await expect(page.getByText("Assets by department", { exact: true })).toBeVisible();
+  await expect(page.getByText("Upcoming license expirations", { exact: true })).toBeVisible();
   const footer = page.locator("footer");
   await expect(footer).toContainText("IT Asset Management System ©");
   await expect(footer).toHaveCSS("color", "rgb(255, 255, 255)");
@@ -124,11 +127,11 @@ test("create asset supports dynamic attribute assignments", async ({ page }) => 
 
 test("navigation filters child menus by permission", async ({ page }) => {
   await authenticate(page, { ...session, permissions: ["ITAM.DASHBOARD_READ", "ITAM.ASSET_READ"] });
-  await page.route("**/api/proxy/v1/dashboard", (route) => route.fulfill({ json: envelope({ Kpi: {}, Condition: {}, CategoryDistribution: [], LocationDistribution: [], RecentAssets: [], RecentMaintenance: [], ActiveStockOpname: null, AssetTrend: [], MaintenanceTrend: [] }, "/v1/dashboard") }));
+  await page.route("**/api/proxy/v1/dashboard", (route) => route.fulfill({ json: envelope({ Kpi: {}, Condition: {}, CategoryDistribution: [], LocationDistribution: [], DepartmentDistribution: [], RecentAssets: [], RecentMaintenance: [], UpcomingLicenses: [], ActiveStockOpname: null, AssetTrend: [], MaintenanceTrend: [] }, "/v1/dashboard") }));
   await page.goto(`${BASE_PATH}/apps`);
   await page.getByText("Master Data", { exact: true }).click();
-  await expect(page.getByRole("link", { name: "Departments" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Users" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Departments" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Asset List" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Categories" })).toHaveCount(0);
   await page.getByText("Transaction Data", { exact: true }).click();

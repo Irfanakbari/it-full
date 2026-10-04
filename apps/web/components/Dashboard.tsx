@@ -1,11 +1,39 @@
 "use client";
 
-import { AlertOutlined, AuditOutlined, CheckCircleFilled, ClockCircleOutlined, DesktopOutlined, EnvironmentOutlined, ReloadOutlined, SafetyCertificateOutlined, ToolOutlined, UserSwitchOutlined } from "@ant-design/icons";
+import {
+  AlertOutlined,
+  AuditOutlined,
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  DesktopOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined,
+  ToolOutlined,
+  UserSwitchOutlined,
+} from "@ant-design/icons";
 import { Alert, Button, Card, Col, Empty, Progress, Row, Skeleton, Table, Tag, Tooltip as AntTooltip } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { fetchDashboard, type DashboardMaintenance } from "@/store/dashboardSlice";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Line,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  fetchDashboard,
+  type DashboardDistribution,
+  type DashboardLicense,
+  type DashboardMaintenance,
+} from "@/store/dashboardSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
@@ -23,26 +51,69 @@ function PriorityMetric({ icon, label, value: metricValue, detail, tone }: { ico
   </div>;
 }
 
+function compactDistribution(items: DashboardDistribution[], limit = 5) {
+  const sorted = [...items].sort((a, b) => b.Total - a.Total);
+  if (sorted.length <= limit) return sorted;
+  return [...sorted.slice(0, limit), { Name: "Other", Total: sorted.slice(limit).reduce((sum, item) => sum + item.Total, 0) }];
+}
+
+function DistributionDonut({ title, subtitle, items, emptyText }: { title: string; subtitle: string; items: DashboardDistribution[]; emptyText: string }) {
+  const chartData = compactDistribution(items);
+  const total = chartData.reduce((sum, item) => sum + item.Total, 0);
+  return <Card className="dashboard-card" title={<div className="dashboard-card-title"><span>{title}</span><small>{subtitle}</small></div>}>
+    {chartData.length ? <div className="dashboard-donut-layout">
+      <div className="dashboard-donut-chart">
+        <ResponsiveContainer width="100%" height={230}>
+          <PieChart>
+            <Pie data={chartData} dataKey="Total" nameKey="Name" innerRadius={62} outerRadius={88} paddingAngle={2} stroke="#fcfcfa" strokeWidth={2} isAnimationActive={false}>
+              {chartData.map((item, index) => <Cell key={`${item.Name}-${index}`} fill={chartColors[index % chartColors.length]} />)}
+            </Pie>
+            <Tooltip formatter={(metric) => [numberFormatter.format(Number(metric)), "Assets"]} contentStyle={{ borderRadius: 6, borderColor: "#d9dddf", boxShadow: "0 8px 24px rgba(38,53,69,.12)" }} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="dashboard-donut-total"><strong>{numberFormatter.format(total)}</strong><span>assets</span></div>
+      </div>
+      <div className="dashboard-donut-legend">{chartData.map((item, index) => <div key={`${item.Name}-${index}`}><i style={{ background: chartColors[index % chartColors.length] }} /><span title={item.Name}>{item.Name}</span><strong>{numberFormatter.format(item.Total)}</strong></div>)}</div>
+    </div> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyText} />}
+  </Card>;
+}
+
+function licenseRemaining(endDate?: string | null) {
+  if (!endDate) return { label: "No expiry", color: "default" };
+  const days = dayjs(endDate).startOf("day").diff(dayjs().startOf("day"), "day");
+  if (days <= 0) return { label: "Today", color: "error" };
+  if (days === 1) return { label: "1 day", color: "error" };
+  if (days <= 7) return { label: `${days} days`, color: "error" };
+  if (days <= 30) return { label: `${days} days`, color: "warning" };
+  return { label: `${days} days`, color: "processing" };
+}
+
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   const { data, loading, error } = useAppSelector((state) => state.dashboard);
   useEffect(() => { void dispatch(fetchDashboard()); }, [dispatch]);
 
+  const currentYear = dayjs().year();
   const trendData = useMemo(() => {
     if (!data) return [];
     const monthly = new Map<string, { Month: string; SortKey: string; Assets: number; Maintenance: number }>();
+    for (let month = 0; month <= dayjs().month(); month += 1) {
+      const date = dayjs().year(currentYear).month(month).date(1);
+      const key = date.format("YYYY-MM");
+      monthly.set(key, { Month: date.format("MMM"), SortKey: key, Assets: 0, Maintenance: 0 });
+    }
     data.AssetTrend.forEach((item) => {
       const key = dayjs(item.Month).format("YYYY-MM");
-      monthly.set(key, { Month: dayjs(item.Month).format("MMM YY"), SortKey: key, Assets: item.Total, Maintenance: 0 });
+      const current = monthly.get(key);
+      if (current) current.Assets = item.Total;
     });
     data.MaintenanceTrend.forEach((item) => {
       const key = dayjs(item.Month).format("YYYY-MM");
-      const current = monthly.get(key) ?? { Month: dayjs(item.Month).format("MMM YY"), SortKey: key, Assets: 0, Maintenance: 0 };
-      current.Maintenance = item.Total;
-      monthly.set(key, current);
+      const current = monthly.get(key);
+      if (current) current.Maintenance = item.Total;
     });
     return [...monthly.values()].sort((a, b) => a.SortKey.localeCompare(b.SortKey));
-  }, [data]);
+  }, [currentYear, data]);
 
   if (loading && !data) return <div className="dashboard-loading"><Skeleton active paragraph={{ rows: 14 }} /></div>;
   if (error && !data) return <Alert type="error" showIcon title="Dashboard could not be loaded" description={error} />;
@@ -55,8 +126,6 @@ export default function Dashboard() {
   const utilization = managedAssets ? Math.round((activeAssets / managedAssets) * 100) : 0;
   const openIssues = value(data.Kpi, "OpenMaintenance") + value(data.Kpi, "ExpiredWarranty") + value(data.Kpi, "ExpiredLicenses");
   const categoryData = [...data.CategoryDistribution].sort((a, b) => b.Total - a.Total).slice(0, 6);
-  const locationData = [...data.LocationDistribution].sort((a, b) => b.Total - a.Total).slice(0, 5);
-  const topLocationTotal = Math.max(...locationData.map((item) => item.Total), 1);
   const stockCount = Number(data.ActiveStockOpname?._count?.Details ?? 0);
   const stockStatus = String(data.ActiveStockOpname?.Status ?? "");
 
@@ -70,7 +139,7 @@ export default function Dashboard() {
 
     <section className="dashboard-summary" aria-label="Asset portfolio summary">
       <div className="dashboard-summary__main"><span className="dashboard-summary__icon"><DesktopOutlined /></span><div><span className="dashboard-summary__label">Active assets</span><strong>{numberFormatter.format(activeAssets)}</strong><span className="dashboard-summary__caption">ready and in service</span></div></div>
-      <div className="dashboard-summary__health"><div className="dashboard-summary__health-copy"><span>Operational availability</span><strong>{utilization}%</strong></div><Progress percent={utilization} showInfo={false} strokeColor="#4c6a85" trailColor="#dce5ea" /><small>{numberFormatter.format(inactiveAssets)} inactive assets need review</small></div>
+      <div className="dashboard-summary__health"><div className="dashboard-summary__health-copy"><span>Operational availability</span><strong>{utilization}%</strong></div><Progress percent={utilization} showInfo={false} strokeColor="#4c6a85" railColor="#dce5ea" /><small>{numberFormatter.format(inactiveAssets)} inactive assets need review</small></div>
       <div className="dashboard-summary__facts"><div><span>Managed portfolio</span><strong>{numberFormatter.format(managedAssets)}</strong></div><div><span>Disposed history</span><strong>{numberFormatter.format(disposedAssets)}</strong></div><div><span>Open risk items</span><strong className={openIssues ? "dashboard-text-danger" : ""}>{numberFormatter.format(openIssues)}</strong></div></div>
     </section>
 
@@ -87,25 +156,34 @@ export default function Dashboard() {
     </section>
 
     <Row gutter={[16, 16]}>
-      <Col xs={24} xl={16}><Card className="dashboard-card" title={<div className="dashboard-card-title"><span>Portfolio activity</span><small>Assets added and maintenance records by month</small></div>}>
-        {trendData.length ? <ResponsiveContainer width="100%" height={300}><AreaChart data={trendData} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
-          <defs><linearGradient id="assetFill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#4c6a85" stopOpacity={0.28} /><stop offset="95%" stopColor="#4c6a85" stopOpacity={0.02} /></linearGradient><linearGradient id="maintenanceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#d08b3e" stopOpacity={0.22} /><stop offset="95%" stopColor="#d08b3e" stopOpacity={0.01} /></linearGradient></defs>
-          <CartesianGrid stroke="#e6ebee" vertical={false} /><XAxis dataKey="Month" tickLine={false} axisLine={false} fontSize={11} tickMargin={10} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={11} /><Tooltip contentStyle={{ borderRadius: 6, borderColor: "#d9dddf", boxShadow: "0 8px 24px rgba(38,53,69,.12)" }} /><Area type="monotone" name="Assets added" dataKey="Assets" stroke="#4c6a85" strokeWidth={2} fill="url(#assetFill)" /><Area type="monotone" name="Repairs" dataKey="Maintenance" stroke="#d08b3e" strokeWidth={2} fill="url(#maintenanceFill)" />
-        </AreaChart></ResponsiveContainer> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No monthly activity yet" />}
+      <Col xs={24} xl={16}><Card className="dashboard-card" title={<div className="dashboard-card-title"><span>New assets in {currentYear}</span><small>Monthly registrations with repair activity for context</small></div>}>
+        <ResponsiveContainer width="100%" height={300}><ComposedChart data={trendData} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
+          <CartesianGrid stroke="#e6ebee" vertical={false} /><XAxis dataKey="Month" tickLine={false} axisLine={false} fontSize={11} tickMargin={10} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={11} /><Tooltip contentStyle={{ borderRadius: 6, borderColor: "#d9dddf", boxShadow: "0 8px 24px rgba(38,53,69,.12)" }} /><Bar name="Assets added" dataKey="Assets" fill="#4c6a85" radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={false} /><Line type="monotone" name="Repairs" dataKey="Maintenance" stroke="#d08b3e" strokeWidth={2} dot={{ r: 3, fill: "#d08b3e" }} isAnimationActive={false} />
+        </ComposedChart></ResponsiveContainer>
         <div className="dashboard-chart-legend"><span><i className="dashboard-legend-assets" />Assets added</span><span><i className="dashboard-legend-maintenance" />Repairs</span></div>
       </Card></Col>
       <Col xs={24} xl={8}><Card className="dashboard-card" title={<div className="dashboard-card-title"><span>Asset mix</span><small>Largest categories in active inventory</small></div>}>
-        {categoryData.length ? <ResponsiveContainer width="100%" height={300}><BarChart data={categoryData} layout="vertical" margin={{ top: 8, right: 18, left: 8, bottom: 0 }}><CartesianGrid stroke="#eef1f3" horizontal={false} /><XAxis type="number" hide /><YAxis type="category" dataKey="Name" width={92} tickLine={false} axisLine={false} fontSize={11} /><Tooltip cursor={{ fill: "#f3f6f7" }} contentStyle={{ borderRadius: 6, borderColor: "#d9dddf" }} /><Bar dataKey="Total" name="Assets" radius={[0, 3, 3, 0]} fill={chartColors[0]} maxBarSize={22} /></BarChart></ResponsiveContainer> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No category data" />}
+        {categoryData.length ? <ResponsiveContainer width="100%" height={300}><BarChart data={categoryData} layout="vertical" margin={{ top: 8, right: 18, left: 8, bottom: 0 }}><CartesianGrid stroke="#eef1f3" horizontal={false} /><XAxis type="number" hide /><YAxis type="category" dataKey="Name" width={92} tickLine={false} axisLine={false} fontSize={11} /><Tooltip cursor={{ fill: "#f3f6f7" }} contentStyle={{ borderRadius: 6, borderColor: "#d9dddf" }} /><Bar dataKey="Total" name="Assets" radius={[0, 3, 3, 0]} fill={chartColors[0]} maxBarSize={22} isAnimationActive={false} /></BarChart></ResponsiveContainer> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No category data" />}
       </Card></Col>
     </Row>
 
     <Row gutter={[16, 16]}>
-      <Col xs={24} xl={9}><Card className="dashboard-card" title={<div className="dashboard-card-title"><span>Inventory control</span><small>Current stock opname and physical condition</small></div>}>
+      <Col xs={24} xl={12}><DistributionDonut title="Assets by location" subtitle="Physical distribution of the managed portfolio" items={data.LocationDistribution} emptyText="No location data" /></Col>
+      <Col xs={24} xl={12}><DistributionDonut title="Assets by department" subtitle="Current ownership by department" items={data.DepartmentDistribution} emptyText="No department data" /></Col>
+    </Row>
+
+    <Row gutter={[16, 16]}>
+      <Col xs={24} xl={8}><Card className="dashboard-card" title={<div className="dashboard-card-title"><span>Inventory control</span><small>Current stock opname and physical condition</small></div>}>
         {data.ActiveStockOpname ? <div className="dashboard-stock"><div className="dashboard-stock__top"><span className="dashboard-stock__icon"><AuditOutlined /></span><div><small>Active document</small><strong>{String(data.ActiveStockOpname.DocNumber)}</strong></div><Tag color="processing">{statusLabels[stockStatus] ?? stockStatus}</Tag></div><div className="dashboard-stock__meta"><span>Scope <strong>{numberFormatter.format(stockCount)} assets</strong></span><span>Opname date <strong>{data.ActiveStockOpname.OpnameDate ? dayjs(String(data.ActiveStockOpname.OpnameDate)).format("DD MMM YYYY") : "—"}</strong></span></div></div> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active stock opname" />}
         <div className="dashboard-condition-grid"><div><span className="dashboard-condition dashboard-condition--danger"><AlertOutlined /></span><span>Lost</span><strong>{numberFormatter.format(data.Condition.LOST ?? 0)}</strong></div><div><span className="dashboard-condition dashboard-condition--warning"><ToolOutlined /></span><span>Damaged</span><strong>{numberFormatter.format(data.Condition.DAMAGED ?? 0)}</strong></div></div>
       </Card></Col>
-      <Col xs={24} xl={15}><Card className="dashboard-card" title={<div className="dashboard-card-title"><span>Assets by location</span><small>Top locations by inventory volume</small></div>}>
-        {locationData.length ? <div className="dashboard-locations">{locationData.map((item, index) => <div className="dashboard-location" key={item.Name}><span className="dashboard-location__rank">{index + 1}</span><EnvironmentOutlined /><div><span>{item.Name}</span><Progress percent={Math.round((item.Total / topLocationTotal) * 100)} showInfo={false} strokeColor={chartColors[index % chartColors.length]} trailColor="#edf1f3" size="small" /></div><strong>{numberFormatter.format(item.Total)}</strong></div>)}</div> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No location data" />}
+      <Col xs={24} xl={16}><Card className="dashboard-card dashboard-table-card" title={<div className="dashboard-card-title"><span>Upcoming license expirations</span><small>Active licenses ordered by nearest expiry date</small></div>}>
+        <Table<DashboardLicense> size="small" pagination={false} rowKey={(row) => String(row.Id)} dataSource={data.UpcomingLicenses.slice(0, 8)} locale={{ emptyText: "No upcoming license expirations" }} columns={[
+          { title: "License", dataIndex: "LicenseName", render: (name, row) => <div className="dashboard-table-primary"><strong>{String(name)}</strong><small>{String(row.LicenseType ?? "Unspecified type")}</small></div> },
+          { title: "Assigned asset", width: 160, render: (_, row) => <div className="dashboard-table-primary"><strong>{String(row.Asset?.AssetTag ?? "Shared")}</strong><small>{String(row.Asset?.Name ?? "No asset assignment")}</small></div> },
+          { title: "Expires", dataIndex: "EndDate", width: 112, render: (date) => date ? dayjs(String(date)).format("DD MMM YYYY") : "—" },
+          { title: "Remaining", width: 92, render: (_, row) => { const remaining = licenseRemaining(row.EndDate); return <Tag color={remaining.color}>{remaining.label}</Tag>; } },
+        ]} />
       </Card></Col>
     </Row>
 

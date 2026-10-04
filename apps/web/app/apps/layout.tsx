@@ -32,11 +32,9 @@ function item(label: React.ReactNode, key: string, icon?: React.ReactNode, child
 const navigation: NavigationItem[] = [
   item(<Link href="/apps">Dashboard</Link>, "/apps", <DashboardOutlined />, undefined, ["ITAM.DASHBOARD_READ"]),
   item("Master Data", "master", <DatabaseOutlined />, [
-    item(<Link href="/apps/master-data/departments">Departments</Link>, "/apps/master-data/departments", undefined, undefined, ["ITAM.ASSET_READ"]),
     item(<Link href="/apps/master-data/categories">Categories</Link>, "/apps/master-data/categories", undefined, undefined, ["ITAM.MASTER_READ"]),
     item(<Link href="/apps/master-data/attributes">Attributes</Link>, "/apps/master-data/attributes", undefined, undefined, ["ITAM.MASTER_READ"]),
     item(<Link href="/apps/master-data/locations">Locations</Link>, "/apps/master-data/locations", undefined, undefined, ["ITAM.MASTER_READ"]),
-    item(<Link href="/apps/master-data/users">Users</Link>, "/apps/master-data/users", undefined, undefined, ["ITAM.ASSET_READ"]),
     item(<Link href="/apps/asset-management/assets">Asset List</Link>, "/apps/asset-management/assets", undefined, undefined, ["ITAM.ASSET_READ"]),
   ]),
   item("Transaction Data", "transactions", <SwapOutlined />, [
@@ -136,12 +134,10 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
 
   if (sessionLoadingSso || isChecking) {
     return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#020617", color: "white" }}>
-        <div style={{ textAlign: "center" }}>
-          <Image src={withBasePath("/images/ansei-white.png")} alt="ITAM logo" width={180} height={90} priority style={{ marginBottom: 24 }} />
-          <div><Spin size="large" /></div>
-          <p style={{ color: "#cbd5e1" }}>Checking your Vuteq account session...</p>
-        </div>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backgroundColor: "#020617" }}>
+        <Image src={withBasePath("/images/ansei-white.png")} alt="ITAM logo" width={180} height={90} priority style={{ marginBottom: "24px" }} />
+        <Spin size="large" />
+        <div style={{ marginTop: "16px", fontSize: "16px", color: "#cbd5e1" }}>Memeriksa sesi akun Vuteq Anda...</div>
       </div>
     );
   }
