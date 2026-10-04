@@ -3,6 +3,7 @@ import { DesktopOutlined, HeartOutlined, InfoCircleOutlined, SafetyCertificateOu
 import { Button, Modal, Timeline, Typography } from "antd";
 import Image from "next/image";
 import { useState } from "react";
+import { withBasePath } from "@/lib/base-path";
 const { Paragraph, Title } = Typography;
 
 export default function CreditInformationModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -21,7 +22,7 @@ export default function CreditInformationModal({ open, onClose }: { open: boolea
         </div><div style={{ marginTop: 24, paddingTop: 16, textAlign: "center", color: "#999", fontSize: 12 }}>Developed with <HeartOutlined style={{ color: "#dc2626" }} /> by IT Teams</div>
       </div>
     </Modal>
-    <Modal title="Technology Stack" open={techOpen} centered onCancel={() => setTechOpen(false)} footer={<Button type="primary" onClick={() => setTechOpen(false)}>Close</Button>}><div style={{ textAlign: "center" }}><p>Next.js 16 · React 19 · Ant Design 6 · NestJS 11 · Prisma 7 · PostgreSQL · Redis</p><SafetyCertificateOutlined style={{ fontSize: 30, color: "#4C6A85" }} /><div style={{ display: "flex", gap: 24, justifyContent: "center", marginTop: 12 }}><Image src="/images/ssl.png" alt="SSL Secured" width={120} height={30} /><Image src="/images/aes.webp" alt="AES 256 Encryption" width={60} height={60} /></div></div></Modal>
+    <Modal title="Technology Stack" open={techOpen} centered onCancel={() => setTechOpen(false)} footer={<Button type="primary" onClick={() => setTechOpen(false)}>Close</Button>}><div style={{ textAlign: "center" }}><p>Next.js 16 · React 19 · Ant Design 6 · NestJS 11 · Prisma 7 · PostgreSQL · Redis</p><SafetyCertificateOutlined style={{ fontSize: 30, color: "#4C6A85" }} /><div style={{ display: "flex", gap: 24, justifyContent: "center", marginTop: 12 }}><Image src={withBasePath("/images/ssl.png")} alt="SSL Secured" width={120} height={30} /><Image src={withBasePath("/images/aes.webp")} alt="AES 256 Encryption" width={60} height={60} /></div></div></Modal>
     <Modal title="Privacy Policy" open={privacyOpen} centered width={820} onCancel={() => setPrivacyOpen(false)} footer={<Button type="primary" onClick={() => setPrivacyOpen(false)}>Close</Button>} styles={{ body: { maxHeight: "70vh", overflowY: "auto" } }}><Title level={4}>Employee and IT Asset Data Protection Policy</Title><Paragraph>ITAM processes SSO identity, role, permission, employee assignment, device inventory, maintenance, licensing, and audit data for PT Vuteq Indonesia. Access follows least privilege and every sensitive action is attributable through a request ID and audit event.</Paragraph><Title level={5}>Security and retention</Title><Paragraph>Transport is encrypted, license keys use authenticated encryption, browser sessions do not expose OAuth tokens, and operational records are retained according to company governance.</Paragraph></Modal>
     <Modal title="Update Log" open={updatesOpen} centered width={760} onCancel={() => setUpdatesOpen(false)} footer={<Button type="primary" onClick={() => setUpdatesOpen(false)}>Close</Button>}><Timeline items={[{ children: "v1.0.0 — Initial ITAM monorepo, SSO BFF, RBAC, audit, and Stock Opname." }, { children: "Clean PascalCase database baseline and server-side tables." }]} /></Modal>
   </>;

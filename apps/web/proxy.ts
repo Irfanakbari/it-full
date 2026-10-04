@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { withBasePath, withoutBasePath } from "./lib/base-path";
 
-export async function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
+  const pathname = withoutBasePath(request.nextUrl.pathname);
   const hasSessionCookie =
     request.cookies.has("itam_session") ||
     request.cookies.has("__Host-itam_session");
 
-  if (request.nextUrl.pathname === "/" && hasSessionCookie) {
-    return NextResponse.redirect(new URL("/apps", request.url));
+  if (pathname === "/" && hasSessionCookie) {
+    return NextResponse.redirect(new URL(withBasePath("/apps"), request.url));
   }
 
   if (!hasSessionCookie) {
@@ -17,10 +19,10 @@ export async function middleware(request: NextRequest) {
       request.nextUrl.searchParams.has("_rsc");
 
     if (isRsc) {
-      return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(new URL(withBasePath("/"), request.url));
     }
 
-    return NextResponse.redirect(new URL("/auth/login", request.url));
+    return NextResponse.redirect(new URL(withBasePath("/auth/login"), request.url));
   }
 
   return NextResponse.next();

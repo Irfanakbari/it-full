@@ -34,7 +34,7 @@ body { background: var(--background); color: var(--foreground); font-family: Ari
 .ansei-sider .ant-menu-dark .ant-menu-item:hover, .ansei-sider .ant-menu-dark .ant-menu-submenu-title:hover { background: #3a4e61 !important; border-radius: 4px; }
 .ansei-header-footer { background-color: #263545 !important; box-shadow: 0 2px 8px rgba(38,53,69,.14); }
 .ansei-content-surface { background: var(--color-surface) !important; box-shadow: var(--surface-shadow); }
-.batik-bg { background-color: #263545 !important; background-image: url('/images/batik5.png') !important; background-size: 1000px !important; background-repeat: repeat !important; background-position: center !important; color: #fff !important; position: relative !important; }
+.batik-bg { background-color: #263545 !important; background-image: url('/it-asset/images/batik5.png') !important; background-size: 1000px !important; background-repeat: repeat !important; background-position: center !important; color: #fff !important; position: relative !important; }
 .batik-bg::before { content: ""; position: absolute; inset: 0; background: rgba(38,53,69,.72); pointer-events: none; z-index: 0; }
 .batik-bg > * { position: relative; z-index: 1; }
 .ant-card:not(.ant-card-bordered), .ant-modal .ant-modal-content, .ant-popover .ant-popover-inner, .ant-dropdown .ant-dropdown-menu { background: var(--color-surface); box-shadow: var(--surface-shadow); }

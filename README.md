@@ -30,6 +30,11 @@ sanitized employee lookup sourced only from ESSA's `/v1/employee-management/opti
 endpoint and stores the selected employee number and name as an assignment-history
 snapshot; it does not maintain a second employee or department master.
 
-The Vuteq SSO client must register `/auth/callback`, the application origin,
-and `/api/auth/backchannel-logout` exactly. OAuth tokens stay in the server-side
-Redis session and are never returned to the browser.
+The web application is served below `/it-asset`. Reverse proxies must forward
+`/it-asset` and `/it-asset/*` without stripping the prefix; the container health
+endpoint is `/it-asset/api/health`.
+
+`VUTEQ_SSO_PUBLIC_ORIGIN` remains an origin without a path. Register
+`/it-asset/auth/callback`, `/it-asset/`, and
+`/it-asset/api/auth/backchannel-logout` exactly in Vuteq SSO. OAuth tokens stay
+in the server-side Redis session and are never returned to the browser.

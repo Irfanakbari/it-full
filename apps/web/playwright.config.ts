@@ -11,5 +11,5 @@ export default defineConfig({
     { name: "desktop-1440", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
     { name: "desktop-1920", use: { ...devices["Desktop Chrome HiDPI"], viewport: { width: 1920, height: 1080 } } },
   ],
-  webServer: { command: "pnpm dev --hostname 127.0.0.1 --port 3200", url: "http://127.0.0.1:3200", reuseExistingServer: true, timeout: 120_000 },
+  webServer: { command: "pnpm dev --hostname 127.0.0.1 --port 3200", url: "http://127.0.0.1:3200/it-asset", reuseExistingServer: true, timeout: 120_000 },
 });

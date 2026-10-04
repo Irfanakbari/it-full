@@ -9,6 +9,7 @@ import GoldenArrowAction from "./GoldenArrowAction";
 import ToolbarWrapper from "./ToolbarWrapper";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchResource, mutateResource, patchQuery, selectResource } from "@/store/resourceSlice";
+import { withBasePath } from "@/lib/base-path";
 import { bffRequest } from "@/lib/client-api";
 
 export type FieldConfig = { key: string; label: string; type?: "text" | "number" | "boolean" | "date" | "textarea" | "tags" | "remote" | "attributes"; required?: boolean; createOnly?: boolean; filter?: boolean; filterKey?: string; render?: "date" | "boolean" | "status"; maxLength?: number; uppercase?: boolean; remote?: { endpoint: string; labelKey: string; labelKeys?: string[]; valueKey: string; paginated?: boolean } };
@@ -126,7 +127,7 @@ export default function ResourcePage({ config }: { config: ResourceConfig }) {
   const downloadAttachment = async (attachment: AttachmentRow) => {
     if (!selected || attachment.IsLegacy) return;
     try {
-      const response = await fetch(`/api/proxy/v1/${config.endpoint}/${selected[config.rowKey]}/attachments/${attachment.Id}/download`, { cache: "no-store" });
+      const response = await fetch(withBasePath(`/api/proxy/v1/${config.endpoint}/${selected[config.rowKey]}/attachments/${attachment.Id}/download`), { cache: "no-store" });
       if (!response.ok) {
         const error = await response.json().catch(() => null) as { message?: string } | null;
         throw new Error(error?.message ?? "Download failed");

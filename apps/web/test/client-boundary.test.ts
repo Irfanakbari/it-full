@@ -6,6 +6,7 @@ describe("browser API boundary", () => {
   it("uses the same-origin BFF in client data thunks", () => {
     const source = readFileSync(join(process.cwd(), "lib/client-api.ts"), "utf8");
     expect(source).toContain("/api/proxy/v1/");
+    expect(source).toContain("withBasePath");
     expect(source).not.toContain("process.env.API_URL");
     expect(source).not.toMatch(/https?:\/\//);
   });

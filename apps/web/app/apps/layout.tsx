@@ -20,6 +20,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import CreditInformationModal from "@/components/CreditInformationModal";
+import { withBasePath, withoutBasePath } from "@/lib/base-path";
 import type { AppDispatch, RootState } from "@/store";
 import { clearAuth, setAuthData } from "@/store/features/auth/authSlice";
 
@@ -58,7 +59,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
   const [collapsed, setCollapsed] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
-  const pathname = usePathname();
+  const pathname = withoutBasePath(usePathname());
   const { modal } = App.useApp();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -94,7 +95,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
     }
 
     if (sessionStorage.getItem("processing401") !== "true") {
-      window.location.replace("/auth/login");
+      window.location.replace(withBasePath("/auth/login"));
     }
   }, [dispatch, session, sessionLoadingSso]);
 
@@ -110,7 +111,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
         dispatch(clearAuth());
         const form = document.createElement("form");
         form.method = "POST";
-        form.action = "/auth/logout";
+        form.action = withBasePath("/auth/logout");
         document.body.appendChild(form);
         form.submit();
       },
@@ -137,7 +138,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#020617", color: "white" }}>
         <div style={{ textAlign: "center" }}>
-          <Image src="/images/ansei-white.png" alt="ITAM logo" width={180} height={90} priority style={{ marginBottom: 24 }} />
+          <Image src={withBasePath("/images/ansei-white.png")} alt="ITAM logo" width={180} height={90} priority style={{ marginBottom: 24 }} />
           <div><Spin size="large" /></div>
           <p style={{ color: "#cbd5e1" }}>Checking your Vuteq account session...</p>
         </div>
@@ -148,7 +149,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
   return <>
     <Layout style={{ minHeight: "100vh", display: "flex" }}>
       <Sider className="ansei-sider" collapsible collapsed={collapsed} collapsedWidth={80} onCollapse={setCollapsed} width={300} theme="dark" style={{ overflow: "auto", height: "100vh", position: "fixed", left: 0, top: 0, bottom: 0, zIndex: 100, background: "#263545" }}>
-        <div className="text-center justify-center flex p-1"><Image src="/images/ansei-white.png" alt="ITAM logo" width={200} height={100} priority /></div>
+        <div className="text-center justify-center flex p-1"><Image src={withBasePath("/images/ansei-white.png")} alt="ITAM logo" width={200} height={100} priority /></div>
         <Menu theme="dark" style={{ background: "transparent", padding: "4px 8px" }} selectedKeys={[selected]} defaultOpenKeys={selectedParent ? [String(selectedParent.key)] : []} mode="inline" items={menu} />
       </Sider>
       <Layout style={{ marginLeft: collapsed ? 80 : 300, transition: "margin-left .2s", display: "flex", flexDirection: "column", height: "100vh" }}>

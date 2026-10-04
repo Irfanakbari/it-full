@@ -5,6 +5,7 @@ import { App, ConfigProvider } from "antd";
 import React from "react";
 import "./globals.css";
 import { ReduxProvider } from "@/store/provider";
+import { withBasePath } from "@/lib/base-path";
 
 export const metadata: Metadata = { title: "IT Asset Management System", description: "PT Vuteq Indonesia IT asset management" };
 
@@ -13,9 +14,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         <VuteqSsoProvider
-          sessionEndpoint="/api/auth/session"
-          loginPath="/auth/login"
-          logoutPath="/auth/logout"
+          sessionEndpoint={withBasePath("/api/auth/session")}
+          loginPath={withBasePath("/auth/login")}
+          logoutPath={withBasePath("/auth/logout")}
         >
           <ReduxProvider>
             <ConfigProvider
