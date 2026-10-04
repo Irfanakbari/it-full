@@ -5,7 +5,7 @@ import type { Response } from "express";
 import { actorContext } from "../common/actor";
 import type { RequestWithContext } from "../common/api.types";
 import type { BufferedUpload } from "../common/upload-security.util";
-import { AssetQueryDto, AssignmentBodyDto, CreateAssetBodyDto, DisposalBodyDto, UpdateAssetBodyDto } from "./assets.dto";
+import { AssetQueryDto, AssignmentBodyDto, CreateAssetBodyDto, DepartmentAssignmentBodyDto, DepartmentAssignmentQueryDto, DisposalBodyDto, UpdateAssetBodyDto } from "./assets.dto";
 import { AssetsService } from "./assets.service";
 
 @Controller({ path: "assets", version: "1" })
@@ -84,6 +84,17 @@ export class AssetUserAssignmentsController {
   @Post() @Permissions("ITAM.ASSET_ASSIGN")
   create(@Body() body: AssignmentBodyDto, @Req() request: RequestWithContext, @CurrentUser() user: VuteqUser) {
     return this.service.assignUser(body, actorContext(request, user));
+  }
+}
+
+@Controller({ path: "asset-department-assignments", version: "1" })
+export class AssetDepartmentAssignmentsController {
+  constructor(private readonly service: AssetsService) {}
+  @Get() @Permissions("ITAM.ASSET_READ")
+  list(@Query() query: DepartmentAssignmentQueryDto) { return this.service.departmentAssignmentList(query); }
+  @Post() @Permissions("ITAM.ASSET_ASSIGN")
+  create(@Body() body: DepartmentAssignmentBodyDto, @Req() request: RequestWithContext, @CurrentUser() user: VuteqUser) {
+    return this.service.assignDepartment(body, actorContext(request, user));
   }
 }
 

@@ -17,6 +17,7 @@ describe("AuditService", () => {
     const { service, prisma, tx } = harness();
     const result = await service.execute({ functionId: "ASSET_UPDATE", functionName: "Update asset", sourceType: "Asset", sourceId: "7", action: "UPDATE", actor, before: { Name: "Old" }, operation: async () => ({ Name: "New" }) });
     expect(result).toEqual({ Name: "New" });
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
     expect(tx.actionAuditEvent.create).toHaveBeenCalledWith({ data: expect.objectContaining({ Actor: "sso-sub", RequestId: "request-1", Before: { Name: "Old" }, After: { Name: "New" } }) });
     expect(prisma.logProcess.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ ProcessStatus: "SUCCESS" }) }));
   });

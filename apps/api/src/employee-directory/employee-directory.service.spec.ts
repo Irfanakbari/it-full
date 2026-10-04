@@ -1,6 +1,6 @@
 import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EmployeeDirectoryQueryDto } from "./employee-directory.dto";
+import { DepartmentDirectoryQueryDto, EmployeeDirectoryQueryDto } from "./employee-directory.dto";
 import { EmployeeDirectoryService } from "./employee-directory.service";
 
 describe("EmployeeDirectoryService", () => {
@@ -18,7 +18,7 @@ describe("EmployeeDirectoryService", () => {
     return new EmployeeDirectoryService(config);
   }
 
-  it("uses only the ESSA option endpoint and returns every matching employee without pagination", async () => {
+  it("uses only the ESSA option endpoint and returns paginated matching employees", async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -49,6 +49,7 @@ describe("EmployeeDirectoryService", () => {
         EmployeeName: "Irfan Saputra",
         DisplayLabel: "E000001 - Irfan Saputra",
       }],
+      meta: { page: 1, limit: 50, totalItems: 1, totalPages: 1 },
     });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
     expect(url.toString()).toBe("https://essa.vuteq.co.id/connector/v1/employee-management/option");
@@ -112,10 +113,12 @@ describe("EmployeeDirectoryService", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
+    const query = new DepartmentDirectoryQueryDto();
+    query.search = "technology";
     const result = await service({
       ESSA_API_URL: "https://essa.vuteq.co.id/connector/",
       ESSA_API_KEY: "server-secret",
-    }).listDepartments({ search: "technology" });
+    }).listDepartments(query);
 
     expect(result).toEqual({
       data: [{
@@ -123,9 +126,33 @@ describe("EmployeeDirectoryService", () => {
         Name: "Information Technology",
         DisplayLabel: "IT - Information Technology",
       }],
+      meta: { page: 1, limit: 50, totalItems: 1, totalPages: 1 },
     });
     const [url] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
     expect(url.toString()).toBe("https://essa.vuteq.co.id/connector/v1/master/level?LevelType=3");
+  });
+
+  it("applies employee directory filters, sorting, and pagination on the server response", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: [
+        { EmployeeNo: "E003", FirstName: "Zara", LastName: "Ito" },
+        { EmployeeNo: "E001", FirstName: "Ari", LastName: "Ito" },
+        { EmployeeNo: "E002", FirstName: "Budi", LastName: "Other" },
+      ] }),
+    }) as unknown as typeof fetch;
+    const query = new EmployeeDirectoryQueryDto();
+    query.EmployeeName = "ito";
+    query.sortBy = "EmployeeName";
+    query.sortOrder = "desc";
+    query.page = 2;
+    query.limit = 1;
+
+    await expect(service({ ESSA_API_URL: "https://essa.test", ESSA_API_KEY: "secret" }).list(query)).resolves.toEqual({
+      data: [{ EmployeeNo: "E001", EmployeeName: "Ari Ito", DisplayLabel: "E001 - Ari Ito" }],
+      meta: { page: 2, limit: 1, totalItems: 2, totalPages: 2 },
+    });
   });
 
   it("fails closed when the server-only ESSA configuration is missing", async () => {

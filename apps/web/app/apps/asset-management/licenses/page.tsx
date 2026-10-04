@@ -4,7 +4,7 @@ const config = {
   title: "Licenses",
   endpoint: "licenses",
   rowKey: "Id",
-  breadcrumbs: ["Home", "Asset Management", "Licenses"],
+  breadcrumbs: ["Home", "Transaction Data", "Licenses"],
   columns: [
     { key: "LicenseName", label: "License Name" },
     { key: "LicenseType", label: "Type" },

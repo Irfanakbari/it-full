@@ -1,6 +1,9 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { bffRequest } from "@/lib/client-api";
-export type DashboardData = { Kpi: Record<string, number>; Condition: Record<string, number>; CategoryDistribution: { Name: string; Total: number }[]; LocationDistribution: { Name: string; Total: number }[]; RecentAssets: Record<string, unknown>[]; RecentMaintenance: Record<string, unknown>[]; ActiveStockOpname: Record<string, unknown> | null; AssetTrend: { Month: string; Total: number }[]; MaintenanceTrend: { Month: string; Total: number }[] };
+export type DashboardAsset = { Id: number; AssetTag?: string; Name?: string; IsActive?: boolean; Category?: { Name?: string } | null; Location?: { Name?: string } | null };
+export type DashboardMaintenance = { Id: string; MaintenanceType?: string; MaintenanceDate?: string; IsClosed?: boolean; Asset?: { AssetTag?: string; Name?: string } | null };
+export type DashboardStockOpname = { DocNumber?: string; Status?: string; OpnameDate?: string; _count?: { Details?: number } };
+export type DashboardData = { Kpi: Record<string, number>; Condition: Record<string, number>; CategoryDistribution: { Name: string; Total: number }[]; LocationDistribution: { Name: string; Total: number }[]; RecentAssets: DashboardAsset[]; RecentMaintenance: DashboardMaintenance[]; ActiveStockOpname: DashboardStockOpname | null; AssetTrend: { Month: string; Total: number }[]; MaintenanceTrend: { Month: string; Total: number }[] };
 type DashboardState = { data: DashboardData | null; loading: boolean; error: string | null };
 const initialState: DashboardState = { data: null, loading: false, error: null };
 export const fetchDashboard = createAsyncThunk<DashboardData, void, { state: { dashboard: DashboardState } }>("dashboard/fetch", async () => { const body = await bffRequest<{ data: DashboardData }>("dashboard"); return body.data; }, { condition: (_argument, { getState }) => !getState().dashboard.loading });

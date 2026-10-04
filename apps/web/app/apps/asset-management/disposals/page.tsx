@@ -1,10 +1,10 @@
 import ResourcePage, { type ResourceConfig } from "@/components/ResourcePage";
 
 const config = {
-  title: "Disposals",
+  title: "Asset Disposals",
   endpoint: "disposals",
   rowKey: "Id",
-  breadcrumbs: ["Home", "Asset Management", "Disposals"],
+  breadcrumbs: ["Home", "Transaction Data", "Asset Disposals"],
   columns: [
     { key: "Asset.AssetTag", label: "Asset Tag" },
     { key: "Asset.Name", label: "Asset" },

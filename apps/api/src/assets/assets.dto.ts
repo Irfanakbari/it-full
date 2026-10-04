@@ -1,5 +1,6 @@
 import { Transform, Type } from "class-transformer";
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsInt,
@@ -7,9 +8,11 @@ import {
   IsString,
   IsUrl,
   MaxLength,
+  Matches,
   Min,
+  ValidateNested,
 } from "class-validator";
-import { PartialType } from "@nestjs/swagger";
+import { OmitType, PartialType } from "@nestjs/swagger";
 import { PaginationQueryDto } from "../common/pagination.dto";
 
 export class AssetQueryDto extends PaginationQueryDto {
@@ -21,6 +24,11 @@ export class AssetQueryDto extends PaginationQueryDto {
   @IsOptional() @IsString() SerialNumber?: string;
   @IsOptional() @Transform(({ value }) => value === true || value === "true") @IsBoolean() IsActive?: boolean;
   @IsOptional() @Transform(({ value }) => value === true || value === "true") @IsBoolean() IsDisposed?: boolean;
+}
+
+export class AssetAttributeInputDto {
+  @Type(() => Number) @IsInt() @Min(1) AttributeDefinitionId!: number;
+  @IsString() @Matches(/\S/, { message: "Attribute value cannot be empty" }) @MaxLength(4000) Value!: string;
 }
 
 export class CreateAssetBodyDto {
@@ -37,14 +45,29 @@ export class CreateAssetBodyDto {
   @IsOptional() @IsDateString() WarrantyEnd?: string;
   @IsOptional() @IsDateString() PurchaseDate?: string;
   @IsOptional() @IsBoolean() IsActive?: boolean;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => AssetAttributeInputDto)
+  Attributes?: AssetAttributeInputDto[];
 }
 
-export class UpdateAssetBodyDto extends PartialType(CreateAssetBodyDto) {}
+export class UpdateAssetBodyDto extends PartialType(OmitType(CreateAssetBodyDto, ["Attributes"] as const)) {}
 
 export class AssignmentBodyDto {
   @Type(() => Number) @IsInt() @Min(1) AssetId!: number;
   @IsString() @MaxLength(30) EmployeeNo!: string;
   @IsOptional() @IsDateString() StartUsed?: string;
+  @IsOptional() @IsString() @MaxLength(500) Notes?: string;
+}
+
+export class DepartmentAssignmentQueryDto extends PaginationQueryDto {
+  @IsOptional() @IsString() @MaxLength(80) AssetTag?: string;
+  @IsOptional() @IsString() @MaxLength(15) DepartmentCode?: string;
+}
+
+export class DepartmentAssignmentBodyDto {
+  @Type(() => Number) @IsInt() @Min(1) AssetId!: number;
+  @Transform(({ value }) => typeof value === "string" ? value.trim().toUpperCase() : value)
+  @IsString() @MaxLength(15) DepartmentCode!: string;
+  @IsDateString() StartUsed!: string;
   @IsOptional() @IsString() @MaxLength(500) Notes?: string;
 }
 

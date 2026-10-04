@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { pageMeta } from "../common/pagination.dto";
 import type { DepartmentDirectoryQueryDto, EmployeeDirectoryQueryDto } from "./employee-directory.dto";
 
 type EssaEmployee = {
@@ -94,23 +95,21 @@ export class EmployeeDirectoryService {
     const response = await this.request<EssaEmployee[]>("/v1/employee-management/option");
     const genericSearch = query.search?.trim().toLocaleLowerCase();
     const employeeNo = query.EmployeeNo?.trim().toLocaleLowerCase();
-    const firstName = query.FirstName?.trim().toLocaleLowerCase();
-    const lastName = query.LastName?.trim().toLocaleLowerCase();
+    const employeeName = query.EmployeeName?.trim().toLocaleLowerCase();
     const filtered = (response.data ?? [])
       .filter((employee) => {
         const normalized = this.normalize(employee);
         return (!genericSearch || `${normalized.EmployeeNo} ${normalized.EmployeeName}`.toLocaleLowerCase().includes(genericSearch))
           && (!employeeNo || normalized.EmployeeNo.toLocaleLowerCase().includes(employeeNo))
-          && (!firstName || employee.FirstName?.toLocaleLowerCase().includes(firstName))
-          && (!lastName || employee.LastName?.toLocaleLowerCase().includes(lastName));
+          && (!employeeName || normalized.EmployeeName.toLocaleLowerCase().includes(employeeName));
       })
       .map((employee) => this.normalize(employee));
     const sortBy = query.sortBy === "EmployeeName" ? "EmployeeName" : "EmployeeNo";
     const direction = query.sortOrder === "desc" ? -1 : 1;
     filtered.sort((left, right) => direction * left[sortBy].localeCompare(right[sortBy]));
-    return {
-      data: filtered,
-    };
+    const totalItems = filtered.length;
+    const start = (query.page - 1) * query.limit;
+    return { data: filtered.slice(start, start + query.limit), meta: pageMeta(query.page, query.limit, totalItems) };
   }
 
   async resolveActive(employeeNo: string): Promise<DirectoryEmployee> {
@@ -136,12 +135,30 @@ export class EmployeeDirectoryService {
     const search = new URLSearchParams({ LevelType: "3" });
     const response = await this.request<EssaLevel[]>("/v1/master/level", search);
     const term = query.search?.trim().toLocaleLowerCase();
+    const code = query.Code?.trim().toLocaleLowerCase();
+    const name = query.Name?.trim().toLocaleLowerCase();
     const data = (response.data ?? [])
       .filter((level) => String(level.LevelType) === "3")
       .map((level) => this.normalizeDepartment(level))
-      .filter((department) => !term || department.DisplayLabel.toLocaleLowerCase().includes(term))
-      .sort((left, right) => left.Code.localeCompare(right.Code));
-    return { data };
+      .filter((department) => (!term || department.DisplayLabel.toLocaleLowerCase().includes(term))
+        && (!code || department.Code.toLocaleLowerCase().includes(code))
+        && (!name || department.Name.toLocaleLowerCase().includes(name)));
+    const sortBy = query.sortBy === "Name" ? "Name" : "Code";
+    const direction = query.sortOrder === "desc" ? -1 : 1;
+    data.sort((left, right) => direction * left[sortBy].localeCompare(right[sortBy]));
+    const totalItems = data.length;
+    const start = (query.page - 1) * query.limit;
+    return { data: data.slice(start, start + query.limit), meta: pageMeta(query.page, query.limit, totalItems) };
+  }
+
+  async resolveDepartmentNames(codes: string[]): Promise<Map<string, string>> {
+    const wanted = new Set(codes.map((code) => code.trim().toUpperCase()).filter(Boolean));
+    if (!wanted.size) return new Map();
+    const response = await this.request<EssaLevel[]>("/v1/master/level", new URLSearchParams({ LevelType: "3" }));
+    return new Map((response.data ?? [])
+      .filter((level) => String(level.LevelType) === "3" && wanted.has(level.LevelCode?.trim().toUpperCase() ?? ""))
+      .map((level) => this.normalizeDepartment(level))
+      .map((department) => [department.Code, department.Name]));
   }
 
   async resolveDepartment(code: string): Promise<DirectoryDepartment> {

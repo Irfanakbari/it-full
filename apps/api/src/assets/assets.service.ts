@@ -9,7 +9,7 @@ import { NasUploadService } from "../common/nas-upload.service";
 import { extensionForUpload, validateAssetUpload, type BufferedUpload } from "../common/upload-security.util";
 import { EmployeeDirectoryService } from "../employee-directory/employee-directory.service";
 import { PrismaService } from "../prisma/prisma.service";
-import type { AssetQueryDto, AssignmentBodyDto, CreateAssetBodyDto, DisposalBodyDto, UpdateAssetBodyDto } from "./assets.dto";
+import type { AssetQueryDto, AssignmentBodyDto, CreateAssetBodyDto, DepartmentAssignmentBodyDto, DepartmentAssignmentQueryDto, DisposalBodyDto, UpdateAssetBodyDto } from "./assets.dto";
 import { buildAssetTag } from "./asset-tag";
 
 const assetInclude = {
@@ -29,8 +29,7 @@ export class AssetsService {
 
   private async withDepartmentNames<T extends { DepartmentCode: string | null }>(records: T[]) {
     try {
-      const directory = await this.employeeDirectory.listDepartments({});
-      const names = new Map(directory.data.map((department) => [department.Code, department.Name]));
+      const names = await this.employeeDirectory.resolveDepartmentNames(records.flatMap((record) => record.DepartmentCode ? [record.DepartmentCode] : []));
       return records.map((record) => ({ ...record, DepartmentName: record.DepartmentCode ? names.get(record.DepartmentCode) ?? record.DepartmentCode : null }));
     } catch {
       return records.map((record) => ({ ...record, DepartmentName: record.DepartmentCode }));
@@ -76,8 +75,10 @@ export class AssetsService {
   }
 
   private cleanBody<T extends CreateAssetBodyDto | UpdateAssetBodyDto>(body: T) {
+    const { Attributes: ignoredAttributes, ...assetBody } = body as CreateAssetBodyDto;
+    void ignoredAttributes;
     return {
-      ...body,
+      ...assetBody,
       WarrantyStart: body.WarrantyStart ? new Date(body.WarrantyStart) : undefined,
       WarrantyEnd: body.WarrantyEnd ? new Date(body.WarrantyEnd) : undefined,
       PurchaseDate: body.PurchaseDate ? new Date(body.PurchaseDate) : undefined,
@@ -168,16 +169,28 @@ export class AssetsService {
   }
 
   async create(body: CreateAssetBodyDto, actor: ActorContext) {
+    const attributeValues = body.Attributes ?? [];
+    const attributeIds = attributeValues.map((attribute) => attribute.AttributeDefinitionId);
     const result = await this.audit.execute({
       functionId: "ASSET_CREATE", functionName: "Create asset", sourceType: "Asset", action: "CREATE", actor,
-      prepare: () => this.employeeDirectory.resolveDepartment(body.DepartmentCode),
+      prepare: async () => {
+        if (new Set(attributeIds).size !== attributeIds.length) {
+          throw new BadRequestException("Each attribute can only be assigned once");
+        }
+        return this.employeeDirectory.resolveDepartment(body.DepartmentCode);
+      },
       operation: async (tx, department) => {
-        const [category, location] = await Promise.all([
+        const [category, location, attributes] = await Promise.all([
           tx.category.findFirst({ where: { Id: body.CategoryId, IsActive: true, DeletedAt: null }, select: { Code: true } }),
           tx.location.findFirst({ where: { Id: body.LocationId, IsActive: true, DeletedAt: null }, select: { Code: true } }),
+          attributeIds.length ? tx.attributeDefinition.findMany({
+            where: { Id: { in: attributeIds }, IsActive: true, DeletedAt: null },
+            select: { Id: true },
+          }) : Promise.resolve([]),
         ]);
         if (!category?.Code) throw new BadRequestException("Selected category does not have an active code");
         if (!location?.Code) throw new BadRequestException("Selected location does not have an active code");
+        if (attributes.length !== attributeIds.length) throw new BadRequestException("One or more selected attributes are inactive or unavailable");
 
         const created = await tx.asset.create({
           data: {
@@ -186,6 +199,12 @@ export class AssetsService {
             AssetTag: `PENDING-${randomUUID()}`,
             CreatedBy: actor.Actor,
             UpdatedBy: actor.Actor,
+            ...(attributeValues.length ? { Attributes: { create: attributeValues.map((attribute) => ({
+              AttributeDefinitionId: attribute.AttributeDefinitionId,
+              Value: attribute.Value.trim(),
+              CreatedBy: actor.Actor,
+              UpdatedBy: actor.Actor,
+            })) } } : {}),
           },
         });
         const AssetTag = buildAssetTag({
@@ -194,7 +213,16 @@ export class AssetsService {
           categoryCode: category.Code,
           locationCode: location.Code,
         });
-        return tx.asset.update({ where: { Id: created.Id }, data: { AssetTag }, include: assetInclude });
+        const asset = await tx.asset.update({ where: { Id: created.Id }, data: { AssetTag }, include: assetInclude });
+        await tx.assetDepartmentAssignment.create({ data: {
+          AssetId: created.Id,
+          DepartmentCode: department.Code,
+          DepartmentName: department.Name,
+          StartUsed: new Date(),
+          Notes: "Initial department at asset creation",
+          CreatedBy: actor.Actor,
+        } });
+        return asset;
       },
       sourceId: (asset) => asset.AssetTag,
     });
@@ -204,14 +232,16 @@ export class AssetsService {
   async update(id: number, body: UpdateAssetBodyDto, actor: ActorContext) {
     const before = await this.prisma.asset.findFirst({ where: { Id: id, DeletedAt: null } });
     if (!before) throw new NotFoundException("Asset not found");
+    if (body.DepartmentCode && body.DepartmentCode.toUpperCase() !== before.DepartmentCode?.toUpperCase()) {
+      throw new BadRequestException("Use Department Mutations to change an asset department");
+    }
     const result = await this.audit.execute({
       functionId: "ASSET_UPDATE", functionName: "Update asset", sourceType: "Asset", sourceId: String(id), action: "UPDATE", actor, before,
-      prepare: () => body.DepartmentCode ? this.employeeDirectory.resolveDepartment(body.DepartmentCode) : Promise.resolve(undefined),
-      operation: (tx, department) => tx.asset.update({
+      operation: (tx) => tx.asset.update({
         where: { Id: id },
         data: {
           ...this.cleanBody(body),
-          ...(department ? { DepartmentCode: department.Code } : {}),
+          DepartmentCode: undefined,
           UpdatedBy: actor.Actor,
         },
         include: assetInclude,
@@ -296,6 +326,100 @@ export class AssetsService {
       this.prisma.assetUserAssignment.count({ where }),
     ]);
     return { data, meta: pageMeta(query.page, query.limit, totalItems) };
+  }
+
+  async departmentAssignmentList(query: DepartmentAssignmentQueryDto) {
+    const search = query.search?.trim();
+    const where = {
+      ...(query.AssetTag ? { Asset: { AssetTag: { contains: query.AssetTag, mode: "insensitive" as const } } } : {}),
+      ...(query.DepartmentCode ? { DepartmentCode: { contains: query.DepartmentCode, mode: "insensitive" as const } } : {}),
+      ...(search ? { OR: [
+        { Asset: { AssetTag: { contains: search, mode: "insensitive" as const } } },
+        { Asset: { Name: { contains: search, mode: "insensitive" as const } } },
+        { DepartmentCode: { contains: search, mode: "insensitive" as const } },
+        { DepartmentName: { contains: search, mode: "insensitive" as const } },
+        { Notes: { contains: search, mode: "insensitive" as const } },
+        { CreatedBy: { contains: search, mode: "insensitive" as const } },
+      ] } : {}),
+    };
+    const allowedSort = ["Id", "DepartmentCode", "StartUsed", "CreatedAt", "CreatedBy"];
+    const sortBy = query.sortBy && allowedSort.includes(query.sortBy) ? query.sortBy : "StartUsed";
+    const [data, totalItems] = await Promise.all([
+      this.prisma.assetDepartmentAssignment.findMany({
+        where,
+        include: { Asset: { select: { Id: true, AssetTag: true, Name: true } } },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        orderBy: { [sortBy]: query.sortOrder === "asc" ? "asc" : "desc" },
+      }),
+      this.prisma.assetDepartmentAssignment.count({ where }),
+    ]);
+    const assetIds = [...new Set(data.map((assignment) => assignment.AssetId))];
+    const timelines = assetIds.length ? await this.prisma.assetDepartmentAssignment.findMany({
+      where: { AssetId: { in: assetIds } },
+      select: { Id: true, AssetId: true, StartUsed: true },
+      orderBy: [{ AssetId: "asc" }, { StartUsed: "asc" }, { Id: "asc" }],
+    }) : [];
+    const lastUsed = new Map<number, Date>();
+    for (let index = 0; index < timelines.length - 1; index += 1) {
+      if (timelines[index].AssetId === timelines[index + 1].AssetId) lastUsed.set(timelines[index].Id, timelines[index + 1].StartUsed);
+    }
+    let departmentNames = new Map<string, string>();
+    try {
+      departmentNames = await this.employeeDirectory.resolveDepartmentNames(data.filter((item) => !item.DepartmentName).map((item) => item.DepartmentCode));
+    } catch {
+      // Stored snapshots and codes keep history available while ESSA is unavailable.
+    }
+    return {
+      data: data.map((assignment) => ({
+        ...assignment,
+        DepartmentName: assignment.DepartmentName ?? departmentNames.get(assignment.DepartmentCode) ?? assignment.DepartmentCode,
+        LastUsed: lastUsed.get(assignment.Id) ?? null,
+      })),
+      meta: pageMeta(query.page, query.limit, totalItems),
+    };
+  }
+
+  async assignDepartment(body: DepartmentAssignmentBodyDto, actor: ActorContext) {
+    const startUsed = new Date(body.StartUsed);
+    const before = await this.prisma.asset.findFirst({ where: { Id: body.AssetId, DeletedAt: null } });
+    const result = await this.audit.execute({
+      functionId: "ASSET_ASSIGN_DEPARTMENT",
+      functionName: "Assign asset to department",
+      sourceType: "Asset",
+      sourceId: String(body.AssetId),
+      action: "ASSIGN_DEPARTMENT",
+      actor,
+      before,
+      prepare: async () => {
+        if (startUsed.getTime() > Date.now()) throw new BadRequestException("Start used cannot be in the future");
+        return this.employeeDirectory.resolveDepartment(body.DepartmentCode);
+      },
+      operation: async (tx, department) => {
+        const asset = await tx.asset.findFirst({ where: { Id: body.AssetId, DeletedAt: null } });
+        if (!asset) throw new NotFoundException("Asset not found");
+        if (!asset.IsActive || asset.IsDisposed) throw new BadRequestException("Only active, non-disposed assets can change department");
+        if (asset.DepartmentCode?.toUpperCase() === department.Code) throw new BadRequestException("Asset is already assigned to this department");
+        const latest = await tx.assetDepartmentAssignment.findFirst({
+          where: { AssetId: body.AssetId },
+          orderBy: [{ StartUsed: "desc" }, { Id: "desc" }],
+        });
+        if (latest && startUsed.getTime() <= latest.StartUsed.getTime()) {
+          throw new BadRequestException("Start used must be later than the latest department assignment");
+        }
+        const assignment = await tx.assetDepartmentAssignment.create({ data: {
+          AssetId: body.AssetId,
+          DepartmentCode: department.Code,
+          DepartmentName: department.Name,
+          StartUsed: startUsed,
+          Notes: body.Notes,
+          CreatedBy: actor.Actor,
+        } });
+        await tx.asset.update({ where: { Id: body.AssetId }, data: { DepartmentCode: department.Code, UpdatedBy: actor.Actor } });
+        return assignment;
+      },
+    });
+    return { data: result, message: "Department mutation completed" };
   }
 
   async disposalList(query: AssetQueryDto) {

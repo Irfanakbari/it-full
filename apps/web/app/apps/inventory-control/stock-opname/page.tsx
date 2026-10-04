@@ -4,7 +4,7 @@ const config = {
   title: "Stock Opname",
   endpoint: "stock-opnames",
   rowKey: "Id",
-  breadcrumbs: ["Home", "Inventory Control", "Stock Opname"],
+  breadcrumbs: ["Home", "Transaction Data", "Stock Opname"],
   columns: [
     { key: "DocNumber", label: "Document Number" },
     { key: "OpnameDate", label: "Date", render: "date" },

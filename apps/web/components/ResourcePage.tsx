@@ -1,6 +1,6 @@
 "use client";
 
-import { DeleteOutlined, DownloadOutlined, EditOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, ToolOutlined, UploadOutlined } from "@ant-design/icons";
+import { DeleteOutlined, DownloadOutlined, EditOutlined, EyeOutlined, MinusCircleOutlined, PaperClipOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, ToolOutlined, UploadOutlined } from "@ant-design/icons";
 import { useVuteqSso } from "@vuteq/sso-client-react/react";
 import { Alert, App, Breadcrumb, Button, Card, Col, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Table, Tag, Upload, type TableProps, type UploadFile } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -11,9 +11,9 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchResource, mutateResource, patchQuery, selectResource } from "@/store/resourceSlice";
 import { bffRequest } from "@/lib/client-api";
 
-export type FieldConfig = { key: string; label: string; type?: "text" | "number" | "boolean" | "date" | "textarea" | "tags" | "remote"; required?: boolean; filter?: boolean; render?: "date" | "boolean" | "status"; maxLength?: number; uppercase?: boolean; remote?: { endpoint: string; labelKey: string; labelKeys?: string[]; valueKey: string; paginated?: boolean } };
+export type FieldConfig = { key: string; label: string; type?: "text" | "number" | "boolean" | "date" | "textarea" | "tags" | "remote" | "attributes"; required?: boolean; createOnly?: boolean; filter?: boolean; filterKey?: string; render?: "date" | "boolean" | "status"; maxLength?: number; uppercase?: boolean; remote?: { endpoint: string; labelKey: string; labelKeys?: string[]; valueKey: string; paginated?: boolean } };
 export type ResourceAction = { label: string; path: string; permission: string; method?: "POST" | "PATCH"; fields?: FieldConfig[]; danger?: boolean };
-export type ResourceConfig = { title: string; endpoint: string; rowKey: string; columns: FieldConfig[]; breadcrumbs?: string[]; form?: FieldConfig[]; createPermission?: string; updatePermission?: string; deletePermission?: string; readOnly?: boolean; canCreate?: boolean; canUpdate?: boolean; canDelete?: boolean; archiveLabel?: string; actions?: ResourceAction[]; attachments?: { readPermission: string; updatePermission: string } };
+export type ResourceConfig = { title: string; endpoint: string; rowKey: string; columns: FieldConfig[]; breadcrumbs?: string[]; form?: FieldConfig[]; createPermission?: string; updatePermission?: string; deletePermission?: string; readOnly?: boolean; canCreate?: boolean; canUpdate?: boolean; updateFromDetailOnly?: boolean; canDelete?: boolean; showDetailToolbar?: boolean; archiveLabel?: string; actions?: ResourceAction[]; attachments?: { readPermission: string; updatePermission: string } };
 
 type AttachmentRow = { Id: number; OriginalFileName: string; FileSize: number; MimeType: string; CreatedAt: string; CreatedBy: string; IsLegacy?: boolean };
 
@@ -48,7 +48,7 @@ export default function ResourcePage({ config }: { config: ResourceConfig }) {
   useEffect(() => { if (state.key === config.endpoint) void load(); }, [config.endpoint, load, state.key]);
 
   const openCreate = () => { setEditing(null); form.resetFields(); form.setFieldsValue(Object.fromEntries((config.form ?? []).filter((field) => field.type === "boolean").map((field) => [field.key, field.key === "IsActive"]))); setFormOpen(true); };
-  const openUpdate = () => { if (!selected) return; setEditing(selected); form.setFieldsValue(Object.fromEntries((config.form ?? []).map((field) => [field.key, field.key === "PermissionActions" && Array.isArray(selected.Permissions) ? selected.Permissions.map((permission) => String((permission as Record<string, unknown>).Action)) : nested(selected, field.key)]))); setFormOpen(true); };
+  const openUpdate = (record: Record<string, unknown> | null | undefined = selected) => { if (!record) return; setEditing(record); form.setFieldsValue(Object.fromEntries((config.form ?? []).filter((field) => !field.createOnly).map((field) => [field.key, field.key === "PermissionActions" && Array.isArray(record.Permissions) ? record.Permissions.map((permission) => String((permission as Record<string, unknown>).Action)) : nested(record, field.key)]))); setDetail(null); setFormOpen(true); };
   const save = async () => {
     try {
       const values = await form.validateFields();
@@ -85,7 +85,7 @@ export default function ResourcePage({ config }: { config: ResourceConfig }) {
       const queryString = params.toString();
       const result = await bffRequest<{ data: Record<string, unknown>[] }>(`${field.remote.endpoint}${queryString ? `?${queryString}` : ""}`);
       setRemoteOptions((current) => ({ ...current, [field.key]: result.data.map((row) => ({
-        label: (field.remote!.labelKeys ?? [field.remote!.labelKey]).map((key) => String(row[key])).join(" - "),
+        label: (field.remote!.labelKeys ?? [field.remote!.labelKey]).map((key) => row[key]).filter((value) => value !== null && value !== undefined && value !== "").map(String).join(" - "),
         value: row[field.remote!.valueKey] as string | number,
       })) }));
     } catch (error) { message.error(error instanceof Error ? error.message : "Option search failed"); }
@@ -161,9 +161,9 @@ export default function ResourcePage({ config }: { config: ResourceConfig }) {
       key: field.key,
       sorter: !field.key.includes("."),
       sortOrder: query.sortBy === field.key ? (query.sortOrder === "desc" ? "descend" as const : "ascend" as const) : null,
-      filteredValue: query.filters[field.key] !== undefined ? [String(query.filters[field.key])] : null,
-      filterDropdown: field.filter ? ({ close }: { close: () => void }) => <div className="filter-panel" onKeyDown={(event) => event.stopPropagation()}><Input autoFocus placeholder={`Search ${field.label}`} value={String(query.filters[field.key] ?? "")} onChange={(event) => dispatch(patchQuery({ page: 1, filters: { ...query.filters, [field.key]: event.target.value } }))} onPressEnter={() => close()} /><Space style={{ marginTop: 8 }}><Button size="small" type="primary" icon={<SearchOutlined />} onClick={() => close()}>Apply</Button><Button size="small" onClick={() => { const filters = { ...query.filters }; delete filters[field.key]; dispatch(patchQuery({ page: 1, filters })); close(); }}>Reset</Button></Space></div> : undefined,
-      filterIcon: field.filter ? <SearchOutlined style={{ color: query.filters[field.key] ? "#4F46E5" : undefined }} /> : undefined,
+      filteredValue: query.filters[field.filterKey ?? field.key] !== undefined ? [String(query.filters[field.filterKey ?? field.key])] : null,
+      filterDropdown: field.filter ? ({ close }: { close: () => void }) => <div className="filter-panel" onKeyDown={(event) => event.stopPropagation()}><Input autoFocus placeholder={`Search ${field.label}`} value={String(query.filters[field.filterKey ?? field.key] ?? "")} onChange={(event) => dispatch(patchQuery({ page: 1, filters: { ...query.filters, [field.filterKey ?? field.key]: event.target.value } }))} onPressEnter={() => close()} /><Space style={{ marginTop: 8 }}><Button size="small" type="primary" icon={<SearchOutlined />} onClick={() => close()}>Apply</Button><Button size="small" onClick={() => { const filters = { ...query.filters }; delete filters[field.filterKey ?? field.key]; dispatch(patchQuery({ page: 1, filters })); close(); }}>Reset</Button></Space></div> : undefined,
+      filterIcon: field.filter ? <SearchOutlined style={{ color: query.filters[field.filterKey ?? field.key] ? "#4F46E5" : undefined }} /> : undefined,
       render: (_value: unknown, record: Record<string, unknown>) => {
         const value = nested(record, field.key);
         const content = field.render === "date"
@@ -204,7 +204,23 @@ export default function ResourcePage({ config }: { config: ResourceConfig }) {
               : <Input maxLength={field.maxLength} showCount={Boolean(field.maxLength)} />;
 
   const renderFormFields = (fields: FieldConfig[] = []) => <Row gutter={[16, 0]}>
-    {fields.map((field) => <Col key={field.key} xs={24} md={12}>
+    {fields.map((field) => field.type === "attributes" ? <Col key={field.key} xs={24}>
+      <div style={{ marginBottom: 8, fontWeight: 500 }}>{field.label}</div>
+      <Form.List name={field.key}>
+        {(listFields, { add, remove }) => <Space direction="vertical" style={{ width: "100%" }}>
+          {listFields.map((listField) => <Space key={listField.key} align="baseline" style={{ display: "flex" }}>
+            <Form.Item {...listField} name={[listField.name, "AttributeDefinitionId"]} rules={[{ required: true, message: "Attribute is required" }]} style={{ flex: 1, minWidth: 280 }}>
+              <Select showSearch={{ filterOption: false, onSearch: (value) => void loadRemote(field, value) }} options={remoteOptions[field.key]} loading={remoteLoading[field.key]} onFocus={() => void loadRemote(field)} placeholder="Search attribute" />
+            </Form.Item>
+            <Form.Item {...listField} name={[listField.name, "Value"]} rules={[{ required: true, whitespace: true, message: "Value is required" }, { max: 4000 }]} style={{ flex: 2, minWidth: 360 }}>
+              <Input placeholder="Attribute value" />
+            </Form.Item>
+            <Button type="text" danger aria-label="Remove attribute" icon={<MinusCircleOutlined />} onClick={() => remove(listField.name)} />
+          </Space>)}
+          <Button type="dashed" icon={<PlusOutlined />} onClick={() => add()} block>Add Attribute</Button>
+        </Space>}
+      </Form.List>
+    </Col> : <Col key={field.key} xs={24} md={12}>
       <Form.Item
         name={field.key}
         label={field.label}
@@ -225,21 +241,21 @@ export default function ResourcePage({ config }: { config: ResourceConfig }) {
     <ToolbarWrapper>
       <ButtonToolbar title="Refresh" icon={<ReloadOutlined />} onClick={() => void load()} loading={state.loading} />
       {!config.readOnly && config.canCreate !== false && <ButtonToolbar title="Create" icon={<PlusOutlined />} onClick={openCreate} enable={!config.createPermission || hasPermission(config.createPermission)} />}
-      {!config.readOnly && config.canUpdate !== false && <ButtonToolbar title="Update" icon={<EditOutlined />} onClick={openUpdate} enable={Boolean(selected) && (!config.updatePermission || hasPermission(config.updatePermission))} />}
+      {!config.readOnly && config.canUpdate !== false && !config.updateFromDetailOnly && <ButtonToolbar title="Update" icon={<EditOutlined />} onClick={() => openUpdate()} enable={Boolean(selected) && (!config.updatePermission || hasPermission(config.updatePermission))} />}
       {!config.readOnly && config.canDelete !== false && <ButtonToolbar title={config.archiveLabel ?? "Archive"} icon={<DeleteOutlined />} onClick={archive} enable={Boolean(selected) && (!config.deletePermission || hasPermission(config.deletePermission))} />}
-      <ButtonToolbar title="Detail" icon={<EyeOutlined />} onClick={() => selected && setDetail(selected)} enable={Boolean(selected)} />
+      {config.showDetailToolbar !== false && <ButtonToolbar title="Detail" icon={<EyeOutlined />} onClick={() => selected && setDetail(selected)} enable={Boolean(selected)} />}
       {config.attachments && <ButtonToolbar title="Attachments" icon={<PaperClipOutlined />} onClick={openAttachments} enable={Boolean(selected) && hasPermission(config.attachments.readPermission)} />}
       {config.actions?.map((action) => <ButtonToolbar key={action.path} title={action.label} icon={<ToolOutlined />} onClick={() => { actionForm.resetFields(); actionForm.setFieldsValue(Object.fromEntries((action.fields ?? []).filter((field) => field.type === "boolean").map((field) => [field.key, false]))); setOperation(action); }} enable={Boolean(selected) && hasPermission(action.permission)} />)}
     </ToolbarWrapper>
     {isCurrentResource && state.error && <Alert type="error" showIcon title={state.error} action={<Button size="small" onClick={() => void load()}>Retry</Button>} style={{ marginBottom: 8 }} />}
     <Table<Record<string, unknown>> className="small-table" size="small" rowKey={(record) => String(record[config.rowKey])} columns={columns} dataSource={resourceItems} loading={isCurrentResource && state.loading} onRow={(record) => ({ onClick: () => setSelectedKey(String(record[config.rowKey])), onDoubleClick: () => { setSelectedKey(String(record[config.rowKey])); setDetail(record); } })} rowClassName={(record) => String(record[config.rowKey]) === String(selectedKey) ? "ant-table-row-selected" : ""} scroll={{ x: "max-content", y: "calc(100vh - 300px)" }} pagination={{ current: query.page, pageSize: query.limit, total: isCurrentResource ? state.totalItems : 0, showSizeChanger: true, pageSizeOptions: [20, 50, 100], showTotal: (total) => `${total} records` }} onChange={(pagination, filters, sorter) => { const currentSorter = Array.isArray(sorter) ? sorter[0] : sorter; const filterState = Object.fromEntries(Object.entries(filters).map(([key, value]) => [key, value?.[0] as string | undefined])); dispatch(patchQuery({ page: pagination.current ?? 1, limit: pagination.pageSize ?? 50, sortBy: currentSorter?.field ? String(currentSorter.field) : currentSorter?.columnKey ? String(currentSorter.columnKey) : undefined, sortOrder: currentSorter?.order === "descend" ? "desc" : "asc", filters: filterState })); }} />
     <Modal title={`${editing ? "Update" : "Create"} ${config.title}`} open={formOpen} centered width={920} styles={{ body: { maxHeight: "calc(100vh - 220px)", overflowY: "auto", paddingRight: 8 } }} onCancel={() => !submitting && setFormOpen(false)} onOk={() => void save()} confirmLoading={submitting} forceRender>
-      <Form form={form} layout="vertical" disabled={submitting} scrollToFirstError={{ focus: true }}>{renderFormFields(config.form)}</Form>
+      <Form form={form} layout="vertical" disabled={submitting} scrollToFirstError={{ focus: true }}>{renderFormFields((config.form ?? []).filter((field) => !editing || !field.createOnly))}</Form>
     </Modal>
     <Modal title={operation?.label} open={Boolean(operation)} centered width={840} styles={{ body: { maxHeight: "calc(100vh - 220px)", overflowY: "auto", paddingRight: 8 } }} onCancel={() => !submitting && setOperation(null)} onOk={() => void runOperation()} confirmLoading={submitting} okButtonProps={{ danger: operation?.danger }} forceRender>
       <Form form={actionForm} layout="vertical" disabled={submitting} scrollToFirstError={{ focus: true }}>{operation?.fields?.length ? renderFormFields(operation.fields) : <p>Confirm this action for the selected record.</p>}</Form>
     </Modal>
-    <Modal title={`${config.title} Detail`} open={Boolean(detail)} centered width={960} styles={{ body: { maxHeight: "calc(100vh - 200px)", overflowY: "auto" } }} footer={<Button type="primary" onClick={() => setDetail(null)}>Close</Button>} onCancel={() => setDetail(null)}>
+    <Modal title={`${config.title} Detail`} open={Boolean(detail)} centered width={960} styles={{ body: { maxHeight: "calc(100vh - 200px)", overflowY: "auto" } }} footer={<Space><Button onClick={() => setDetail(null)}>Close</Button>{config.updateFromDetailOnly && !config.readOnly && config.canUpdate !== false && <Button type="primary" icon={<EditOutlined />} onClick={() => openUpdate(detail)} disabled={Boolean(config.updatePermission && !hasPermission(config.updatePermission))}>Update</Button>}</Space>} onCancel={() => setDetail(null)}>
       <Descriptions bordered size="small" column={{ xs: 1, sm: 1, md: 2 }} styles={{ content: { overflowWrap: "anywhere" } }}>{detail && config.columns.map((field) => <Descriptions.Item key={field.key} label={field.label}>{String(nested(detail, field.key) ?? "—")}</Descriptions.Item>)}</Descriptions>
     </Modal>
     <Modal

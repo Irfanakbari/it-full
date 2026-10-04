@@ -1,15 +1,14 @@
 "use client";
 
 import {
-  AuditOutlined,
   BellOutlined,
   DatabaseOutlined,
   DashboardOutlined,
-  DesktopOutlined,
   InfoCircleOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
+  SwapOutlined,
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
@@ -32,18 +31,21 @@ function item(label: React.ReactNode, key: string, icon?: React.ReactNode, child
 const navigation: NavigationItem[] = [
   item(<Link href="/apps">Dashboard</Link>, "/apps", <DashboardOutlined />, undefined, ["ITAM.DASHBOARD_READ"]),
   item("Master Data", "master", <DatabaseOutlined />, [
+    item(<Link href="/apps/master-data/departments">Departments</Link>, "/apps/master-data/departments", undefined, undefined, ["ITAM.ASSET_READ"]),
     item(<Link href="/apps/master-data/categories">Categories</Link>, "/apps/master-data/categories", undefined, undefined, ["ITAM.MASTER_READ"]),
-    item(<Link href="/apps/master-data/locations">Locations</Link>, "/apps/master-data/locations", undefined, undefined, ["ITAM.MASTER_READ"]),
     item(<Link href="/apps/master-data/attributes">Attributes</Link>, "/apps/master-data/attributes", undefined, undefined, ["ITAM.MASTER_READ"]),
+    item(<Link href="/apps/master-data/locations">Locations</Link>, "/apps/master-data/locations", undefined, undefined, ["ITAM.MASTER_READ"]),
+    item(<Link href="/apps/master-data/users">Users</Link>, "/apps/master-data/users", undefined, undefined, ["ITAM.ASSET_READ"]),
+    item(<Link href="/apps/asset-management/assets">Asset List</Link>, "/apps/asset-management/assets", undefined, undefined, ["ITAM.ASSET_READ"]),
   ]),
-  item("Asset Management", "assets", <DesktopOutlined />, [
-    item(<Link href="/apps/asset-management/assets">Assets</Link>, "/apps/asset-management/assets", undefined, undefined, ["ITAM.ASSET_READ"]),
-    item(<Link href="/apps/asset-management/user-assignments">User Assignments</Link>, "/apps/asset-management/user-assignments", undefined, undefined, ["ITAM.ASSET_READ"]),
+  item("Transaction Data", "transactions", <SwapOutlined />, [
     item(<Link href="/apps/asset-management/licenses">Licenses</Link>, "/apps/asset-management/licenses", undefined, undefined, ["ITAM.LICENSE_READ"]),
-    item(<Link href="/apps/asset-management/maintenance">Maintenance</Link>, "/apps/asset-management/maintenance", undefined, undefined, ["ITAM.MAINTENANCE_READ"]),
-    item(<Link href="/apps/asset-management/disposals">Disposals</Link>, "/apps/asset-management/disposals", undefined, undefined, ["ITAM.ASSET_READ"]),
+    item(<Link href="/apps/asset-management/maintenance">Repairs</Link>, "/apps/asset-management/maintenance", undefined, undefined, ["ITAM.MAINTENANCE_READ"]),
+    item(<Link href="/apps/asset-management/user-assignments">User Mutations</Link>, "/apps/asset-management/user-assignments", undefined, undefined, ["ITAM.ASSET_READ"]),
+    item(<Link href="/apps/transaction-data/department-mutations">Department Mutations</Link>, "/apps/transaction-data/department-mutations", undefined, undefined, ["ITAM.ASSET_READ"]),
+    item(<Link href="/apps/asset-management/disposals">Asset Disposals</Link>, "/apps/asset-management/disposals", undefined, undefined, ["ITAM.ASSET_READ"]),
+    item(<Link href="/apps/inventory-control/stock-opname">Stock Opname</Link>, "/apps/inventory-control/stock-opname", undefined, undefined, ["ITAM.STOCK_OPNAME_READ"]),
   ]),
-  item("Inventory Control", "inventory", <AuditOutlined />, [item(<Link href="/apps/inventory-control/stock-opname">Stock Opname</Link>, "/apps/inventory-control/stock-opname", undefined, undefined, ["ITAM.STOCK_OPNAME_READ"])]),
   item("System Administration", "system", <SettingOutlined />, [
     item(<Link href="/apps/system-administration/user-accounts">User Accounts</Link>, "/apps/system-administration/user-accounts", undefined, undefined, ["ITAM.USER_MANAGEMENT"]),
     item(<Link href="/apps/system-administration/roles-configuration">Roles Configuration</Link>, "/apps/system-administration/roles-configuration", undefined, undefined, ["ITAM.USER_MANAGEMENT"]),
@@ -129,6 +131,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
     return navigation.map((entry) => entry.children ? { ...entry, children: entry.children.filter(allow) } : entry).filter((entry) => entry.children ? entry.children.length > 0 : allow(entry));
   }, [isSsoSuperAdmin, user?.Permission, user?.RoleName]);
   const selected = [...navigation.flatMap((entry) => entry.children ?? [entry])].map((entry) => String(entry.key)).filter((key) => pathname === key || (key !== "/apps" && pathname.startsWith(`${key}/`))).sort((a, b) => b.length - a.length)[0] ?? "/apps";
+  const selectedParent = navigation.find((entry) => entry.children?.some((child) => String(child.key) === selected));
 
   if (sessionLoadingSso || isChecking) {
     return (
@@ -146,7 +149,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
     <Layout style={{ minHeight: "100vh", display: "flex" }}>
       <Sider className="ansei-sider" collapsible collapsed={collapsed} collapsedWidth={80} onCollapse={setCollapsed} width={300} theme="dark" style={{ overflow: "auto", height: "100vh", position: "fixed", left: 0, top: 0, bottom: 0, zIndex: 100, background: "#263545" }}>
         <div className="text-center justify-center flex p-1"><Image src="/images/ansei-white.png" alt="ITAM logo" width={200} height={100} priority /></div>
-        <Menu theme="dark" style={{ background: "transparent", padding: "4px 8px" }} selectedKeys={[selected]} mode="inline" items={menu} />
+        <Menu theme="dark" style={{ background: "transparent", padding: "4px 8px" }} selectedKeys={[selected]} defaultOpenKeys={selectedParent ? [String(selectedParent.key)] : []} mode="inline" items={menu} />
       </Sider>
       <Layout style={{ marginLeft: collapsed ? 80 : 300, transition: "margin-left .2s", display: "flex", flexDirection: "column", height: "100vh" }}>
         <Header className="batik-bg ansei-header-footer" style={{ padding: "0 16px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 1000, width: "100%", flexShrink: 0 }}>

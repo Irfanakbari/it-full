@@ -1,3 +1,13 @@
+x-it-full: &it-full
+  image: ${IT_FULL_IMAGE:-it-full:local}
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      API_URL: ${API_URL:-http://api:7600}
+      VUTEQ_SSO_BASE_URL: ${VUTEQ_SSO_BASE_URL:-https://sso.vuteq.co.id}
+      VUTEQ_SSO_PUBLIC_ORIGIN: ${VUTEQ_SSO_PUBLIC_ORIGIN:-http://localhost:3000}
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -31,9 +41,8 @@ services:
       retries: 10
 
   api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
+    <<: *it-full
+    command: ["api"]
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -56,16 +65,22 @@ services:
       LICENSE_ENCRYPTION_KEY: ${LICENSE_ENCRYPTION_KEY:-}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       SWAGGER_API_KEY: ${SWAGGER_API_KEY:-}
+      SERVICE_ROLE: api
     ports:
       - "7600:7600"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:7600/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
+    <<: *it-full
+    command: ["web"]
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -81,13 +96,20 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       VUTEQ_SSO_REDIS_DB: ${VUTEQ_SSO_REDIS_DB:-0}
       VUTEQ_SSO_REDIS_KEY_PREFIX: ${VUTEQ_SSO_REDIS_KEY_PREFIX:-}
+      SERVICE_ROLE: web
     ports:
       - "3000:3000"
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 volumes:
   itam-postgres:

@@ -140,38 +140,39 @@ model AttributeDefinition {
 }
 
 model Asset {
-  Id                  Int                   @id @default(autoincrement())
-  AssetTag            String                @unique @db.VarChar(80)
-  HostName            String?               @db.VarChar(120)
-  Name                String                @db.VarChar(255)
-  Brand               String?               @db.VarChar(120)
-  Model               String?               @db.VarChar(120)
-  SerialNumber        String?               @db.VarChar(160)
-  Notes               String?               @db.Text
-  CategoryId          Int?
-  Category            Category?             @relation(fields: [CategoryId], references: [Id], onDelete: SetNull)
-  LocationId          Int?
-  Location            Location?             @relation(fields: [LocationId], references: [Id], onDelete: SetNull)
-  DepartmentCode      String?               @db.VarChar(15)
-  CurrentEmployeeNo   String?               @db.VarChar(30)
-  CurrentEmployeeName String?               @db.VarChar(255)
-  WarrantyStart       DateTime?
-  WarrantyEnd         DateTime?
-  PurchaseDate        DateTime?
-  IsActive            Boolean               @default(true)
-  IsDisposed          Boolean               @default(false)
-  CreatedAt           DateTime              @default(now())
-  CreatedBy           String
-  UpdatedAt           DateTime              @updatedAt
-  UpdatedBy           String
-  DeletedAt           DateTime?
-  Attributes          AssetAttribute[]
-  UserAssignments     AssetUserAssignment[]
-  MaintenanceRecords  Maintenance[]
-  Licenses            License[]
-  Disposals           Disposal[]
-  StockOpnameDetails  StockOpnameDetail[]
-  Attachments         AssetAttachment[]
+  Id                    Int                         @id @default(autoincrement())
+  AssetTag              String                      @unique @db.VarChar(80)
+  HostName              String?                     @db.VarChar(120)
+  Name                  String                      @db.VarChar(255)
+  Brand                 String?                     @db.VarChar(120)
+  Model                 String?                     @db.VarChar(120)
+  SerialNumber          String?                     @db.VarChar(160)
+  Notes                 String?                     @db.Text
+  CategoryId            Int?
+  Category              Category?                   @relation(fields: [CategoryId], references: [Id], onDelete: SetNull)
+  LocationId            Int?
+  Location              Location?                   @relation(fields: [LocationId], references: [Id], onDelete: SetNull)
+  DepartmentCode        String?                     @db.VarChar(15)
+  CurrentEmployeeNo     String?                     @db.VarChar(30)
+  CurrentEmployeeName   String?                     @db.VarChar(255)
+  WarrantyStart         DateTime?
+  WarrantyEnd           DateTime?
+  PurchaseDate          DateTime?
+  IsActive              Boolean                     @default(true)
+  IsDisposed            Boolean                     @default(false)
+  CreatedAt             DateTime                    @default(now())
+  CreatedBy             String
+  UpdatedAt             DateTime                    @updatedAt
+  UpdatedBy             String
+  DeletedAt             DateTime?
+  Attributes            AssetAttribute[]
+  UserAssignments       AssetUserAssignment[]
+  DepartmentAssignments AssetDepartmentAssignment[]
+  MaintenanceRecords    Maintenance[]
+  Licenses              License[]
+  Disposals             Disposal[]
+  StockOpnameDetails    StockOpnameDetail[]
+  Attachments           AssetAttachment[]
 
   @@index([Name])
   @@index([SerialNumber])
@@ -233,6 +234,21 @@ model AssetUserAssignment {
 
   @@index([AssetId, LastUsed])
   @@index([EmployeeNo, LastUsed])
+}
+
+model AssetDepartmentAssignment {
+  Id             Int      @id @default(autoincrement())
+  AssetId        Int
+  Asset          Asset    @relation(fields: [AssetId], references: [Id], onDelete: Restrict)
+  DepartmentCode String   @db.VarChar(15)
+  DepartmentName String?  @db.VarChar(255)
+  StartUsed      DateTime
+  Notes          String?  @db.VarChar(500)
+  CreatedAt      DateTime @default(now())
+  CreatedBy      String
+
+  @@index([AssetId, StartUsed])
+  @@index([DepartmentCode, StartUsed])
 }
 
 model Maintenance {

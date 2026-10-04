@@ -1,14 +1,10 @@
 import { IsIn, IsOptional, IsString, MaxLength } from "class-validator";
+import { PaginationQueryDto } from "../common/pagination.dto";
 
-export class EmployeeDirectoryQueryDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  search?: string;
-
+export class EmployeeDirectoryQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(["EmployeeNo", "EmployeeName"])
-  sortBy?: "EmployeeNo" | "EmployeeName";
+  declare sortBy?: "EmployeeNo" | "EmployeeName";
 
   @IsOptional()
   @IsIn(["asc", "desc"])
@@ -22,17 +18,21 @@ export class EmployeeDirectoryQueryDto {
   @IsOptional()
   @IsString()
   @MaxLength(120)
-  FirstName?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  LastName?: string;
+  EmployeeName?: string;
 }
 
-export class DepartmentDirectoryQueryDto {
+export class DepartmentDirectoryQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsIn(["Code", "Name"])
+  declare sortBy?: "Code" | "Name";
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(15)
+  Code?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(120)
-  search?: string;
+  Name?: string;
 }
