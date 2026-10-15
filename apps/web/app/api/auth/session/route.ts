@@ -4,7 +4,21 @@ import { sso } from "@/lib/sso";
 
 export const dynamic = "force-dynamic";
 
-type ProfileEnvelope = { data?: { LocalRole?: string | null; Permissions?: string[] } };
+type LocalProfile = {
+  Id?: string;
+  Name?: string;
+  UserName?: string;
+  Email?: string | null;
+  EmailVerified?: boolean;
+  GlobalRoles?: string[];
+  LocalRole?: string | null;
+  RoleName?: string | null;
+  Permissions?: string[];
+  IsActive?: boolean;
+  AccessStatus?: "ACTIVE" | "PENDING" | "BLOCKED" | "UNAVAILABLE";
+};
+
+type ProfileEnvelope = { data?: LocalProfile };
 type ProfileResult = { ok: boolean; status: number; envelope?: ProfileEnvelope };
 const profileRequests = new Map<string, Promise<ProfileResult>>();
 
@@ -48,9 +62,27 @@ export async function GET(request: Request) {
       if (profile.status >= 500) return dependencyUnavailable("/api/auth/session");
       return Response.json(null, { status: profile.status, headers: { "Cache-Control": "no-store" } });
     }
+    const profileData = profile.envelope?.data;
+    const globalSuper = session.globalRoles.includes("SUPER_ADMINISTRATOR");
+    const roleName = globalSuper
+      ? "SUPER"
+      : (profileData?.LocalRole ?? profileData?.RoleName ?? null);
+    const accessStatus = globalSuper
+      ? "ACTIVE"
+      : (roleName ? (profileData?.AccessStatus ?? "ACTIVE") : "PENDING");
+
+    const attributes = {
+      ...profileData,
+      RoleName: roleName,
+      AccessStatus: accessStatus,
+    };
+
     const safe = toClientSession(session, {
-      roles: profile.envelope?.data?.LocalRole ? [profile.envelope.data.LocalRole] : [],
-      permissions: profile.envelope?.data?.Permissions ?? [],
+      roles: roleName ? [roleName] : [],
+      permissions: globalSuper
+        ? [...new Set([...(profileData?.Permissions ?? []), "SUPER"])]
+        : (profileData?.Permissions ?? []),
+      attributes,
     });
     return Response.json(safe, { headers: { "Cache-Control": "no-store" } });
   } catch {

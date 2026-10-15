@@ -9,14 +9,13 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   SwapOutlined,
-  TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import { useVuteqSso } from "@vuteq/sso-client-react/react";
-import { App, Avatar, Badge, Button, Dropdown, Empty, Layout, Menu, Spin, Tooltip, type MenuProps } from "antd";
+import { App, Avatar, Badge, Button, Dropdown, Layout, Menu, Spin, Tooltip, type MenuProps } from "antd";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import CreditInformationModal from "@/components/CreditInformationModal";
@@ -54,6 +53,7 @@ const navigation: NavigationItem[] = [
 ];
 
 export default function AppsLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
@@ -71,6 +71,21 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
 
     if (session) {
       sessionStorage.removeItem("processing401");
+      const profile = session.attributes as { AccessStatus?: string; RoleName?: string } | undefined;
+      const isGlobalSuper =
+        (session?.roles ?? []).includes("SUPER_ADMINISTRATOR") ||
+        (session?.globalRoles ?? []).includes("SUPER_ADMINISTRATOR");
+
+      const hasRole = Boolean(session.roles.length > 0 || profile?.RoleName);
+      if (!isGlobalSuper && (profile?.AccessStatus === "PENDING" || !hasRole)) {
+        router.replace("/auth/pending-account");
+        return;
+      }
+      if (!isGlobalSuper && profile?.AccessStatus && profile.AccessStatus !== "ACTIVE") {
+        router.replace("/auth/error");
+        return;
+      }
+
       dispatch(
         setAuthData({
           user: {
@@ -79,9 +94,9 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
             Email: session.user.email ?? "",
             LastLogin: "",
             DeptPermission: [],
-            RoleName: session.globalRoles.includes("SUPER_ADMINISTRATOR")
+            RoleName: isGlobalSuper
               ? "SUPER"
-              : (session.roles[0] ?? ""),
+              : (session.roles[0] ?? profile?.RoleName ?? ""),
             Permission: session.permissions,
             GlobalRoles: session.globalRoles,
           },
@@ -95,7 +110,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
     if (sessionStorage.getItem("processing401") !== "true") {
       window.location.replace(withBasePath("/auth/login"));
     }
-  }, [dispatch, session, sessionLoadingSso]);
+  }, [dispatch, router, session, sessionLoadingSso]);
 
   const handleLogout = () => {
     modal.confirm({
@@ -153,7 +168,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
           <h2 style={{ fontFamily: "Arial, Helvetica, sans-serif", fontSize: 20, fontWeight: 400, margin: 0, color: "white" }}>IT Asset Management System</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8, height: 32 }}><span className="desktop-greeting" style={{ marginRight: 8, color: "white" }}>Hello, {user?.Name ?? "User"}</span><Tooltip title="Notifications"><span style={{ width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Badge count={0}><BellOutlined style={{ fontSize: 20, color: "white" }} /></Badge></span></Tooltip><Tooltip title="Credits & Information"><Button type="text" aria-label="Open credits and information" onClick={() => setCreditsOpen(true)} style={{ width: 32, height: 32, padding: 0 }} icon={<InfoCircleOutlined style={{ fontSize: 20, color: "white" }} />} /></Tooltip><Dropdown placement="bottomRight" menu={{ items: [{ key: "profile", icon: <UserOutlined />, label: user?.Email || "Profile", disabled: true }, { key: "role", icon: <SafetyCertificateOutlined />, label: user?.RoleName || "Role not assigned", disabled: true }, { type: "divider" }, { key: "logout", icon: <LogoutOutlined />, label: "Logout", onClick: handleLogout }] }}><Avatar icon={<UserOutlined />} size={32} style={{ cursor: "pointer" }} /></Dropdown></div>
         </Header>
-        <Content style={{ margin: "20px 10px", overflow: "auto", flex: 1, minHeight: 0 }}><div className="ansei-content-surface" style={{ padding: 20, minHeight: "100%", background: "#FCFCFA", borderRadius: 6 }}>{user?.RoleName || isSsoSuperAdmin ? children : <Empty image={<TeamOutlined style={{ fontSize: 56, color: "#93A8B8" }} />} description={<span>Your SSO account is active, but no local ITAM role has been assigned.<br />Contact an ITAM administrator.</span>} />}</div></Content>
+        <Content style={{ margin: "20px 10px", overflow: "auto", flex: 1, minHeight: 0 }}><div className="ansei-content-surface" style={{ padding: 20, minHeight: "100%", background: "#FCFCFA", borderRadius: 6 }}>{children}</div></Content>
         <Footer className="batik-bg ansei-header-footer" style={{ textAlign: "center", color: "white", fontSize: 14, fontWeight: 400, position: "sticky", bottom: 0, left: 0, right: 0, zIndex: 999, flexShrink: 0 }}>
           <span>IT Asset Management System © {new Date().getFullYear()} PT Vuteq Indonesia</span>
           <span style={{ margin: "0 8px" }}>|</span>

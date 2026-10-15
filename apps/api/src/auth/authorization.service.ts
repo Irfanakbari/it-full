@@ -36,11 +36,20 @@ export class AuthorizationService {
       include: { Role: { include: { Permissions: true } } },
     });
 
-    if (!user.IsActive || !user.Role?.IsActive) return { roles: [], permissions: [] };
+    if (!user.IsActive || !user.Role?.IsActive) {
+      return {
+        roles: [],
+        permissions: [],
+        attributes: {
+          localUserId: user.Id,
+          accessStatus: !user.IsActive ? "BLOCKED" : "PENDING",
+        },
+      };
+    }
     return {
       roles: [user.Role.RoleName],
       permissions: user.Role.Permissions.map((permission) => permission.Action),
-      attributes: { localUserId: user.Id },
+      attributes: { localUserId: user.Id, accessStatus: "ACTIVE" },
     };
   }
 
@@ -49,6 +58,9 @@ export class AuthorizationService {
       where: { SsoObjectId: user.id },
       include: { Role: true },
     });
+    const isActive = local?.IsActive ?? true;
+    const hasRole = Boolean(local?.Role && local.Role.IsActive);
+    const accessStatus = !isActive ? "BLOCKED" : (hasRole ? "ACTIVE" : "PENDING");
     return {
       Id: user.id,
       Name: user.name ?? local?.Name ?? "System",
@@ -56,9 +68,11 @@ export class AuthorizationService {
       Email: user.email ?? local?.Email,
       EmailVerified: user.emailVerified,
       GlobalRoles: user.globalRoles,
-      LocalRole: local?.Role?.RoleName ?? null,
+      LocalRole: hasRole ? (local?.Role?.RoleName ?? null) : null,
+      RoleName: hasRole ? (local?.Role?.RoleName ?? null) : null,
       Permissions: user.permissions,
-      IsActive: local?.IsActive ?? true,
+      IsActive: isActive,
+      AccessStatus: accessStatus,
     };
   }
 }

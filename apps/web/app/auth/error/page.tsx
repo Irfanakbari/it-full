@@ -1,2 +1,17 @@
-import Link from "next/link";
-export default function AuthError() { return <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#263545", color: "white" }}><div style={{ textAlign: "center" }}><h1>Sign-in failed</h1><p>Vuteq SSO could not complete the sign-in request.</p><Link href="/auth/login" style={{ color: "#fff", textDecoration: "underline" }}>Try again</Link></div></main>; }
+/*By Irfan Akbari Vuteq Indonesia - 2026-09-15*/
+
+import { Button, Result } from "antd";
+import { withBasePath } from "@/lib/base-path";
+
+export default function SsoErrorPage() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <Result
+        status="error"
+        title="Sign-in failed"
+        subTitle="ITAM could not complete your Vuteq SSO sign-in. Please try again."
+        extra={<Button type="primary" href={withBasePath("/auth/login")}>Try again</Button>}
+      />
+    </main>
+  );
+}

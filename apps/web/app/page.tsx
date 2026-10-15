@@ -1,17 +1,38 @@
 "use client";
 
+import { useVuteqSso } from "@vuteq/sso-client-react/react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { withBasePath } from "@/lib/base-path";
 
 const APP_VERSION = "1.0.0";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { session, loading } = useVuteqSso();
   const loginPath = withBasePath("/auth/login");
 
   useEffect(() => {
-    window.location.replace(loginPath);
-  }, [loginPath]);
+    if (loading) return;
+    if (!session) {
+      window.location.replace(loginPath);
+      return;
+    }
+    const profile = session.attributes as { AccessStatus?: string; RoleName?: string } | undefined;
+    const isGlobalSuper =
+      (session.roles ?? []).includes("SUPER_ADMINISTRATOR") ||
+      (session.globalRoles ?? []).includes("SUPER_ADMINISTRATOR");
+
+    const hasRole = Boolean(session.roles.length > 0 || profile?.RoleName);
+    if (!isGlobalSuper && (profile?.AccessStatus === "PENDING" || !hasRole)) {
+      router.replace("/auth/pending-account");
+    } else if (isGlobalSuper || profile?.AccessStatus === "ACTIVE" || hasRole) {
+      router.replace("/apps");
+    } else {
+      router.replace("/auth/error");
+    }
+  }, [loading, loginPath, router, session]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 text-white">
