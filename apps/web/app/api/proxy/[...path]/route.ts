@@ -9,7 +9,10 @@ async function proxy(request: Request, context: { params: Promise<{ path: string
   const url = new URL(request.url);
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
     const origin = request.headers.get("origin");
-    if (origin && origin !== url.origin) return Response.json({ success: false, code: "INVALID_ORIGIN", message: "Invalid request origin" }, { status: 403 });
+    const expectedOrigin = process.env.VUTEQ_SSO_PUBLIC_ORIGIN
+      ? new URL(process.env.VUTEQ_SSO_PUBLIC_ORIGIN).origin
+      : url.origin;
+    if (origin && origin !== expectedOrigin) return Response.json({ success: false, code: "INVALID_ORIGIN", message: "Invalid request origin" }, { status: 403 });
   }
   const requestId = request.headers.get("x-request-id") ?? randomUUID();
   const headers = new Headers();
