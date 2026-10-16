@@ -31,7 +31,7 @@ export class AdminService {
     if (before.SsoObjectId === actor.Actor) throw new ConflictException("You cannot archive your own user account");
     const result = await this.audit.execute({
       functionId: "USER_ARCHIVE", functionName: "Archive user", sourceType: "AppUser", sourceId: id, action: "ARCHIVE", actor, before,
-      operation: (tx) => tx.appUser.update({ where: { Id: id }, data: { DeletedAt: new Date(), DeletedBy: actor.Actor, IsActive: false, RoleId: null, UpdatedBy: actor.Actor }, include: { Role: true } }),
+      operation: (tx) => tx.appUser.update({ where: { Id: id }, data: { SsoObjectId: `archived:${id}`, Email: null, PhoneNumber: null, DeletedAt: new Date(), DeletedBy: actor.Actor, IsActive: false, RoleId: null, UpdatedBy: actor.Actor }, include: { Role: true } }),
     });
     return { data: result, message: "User archived successfully" };
   }

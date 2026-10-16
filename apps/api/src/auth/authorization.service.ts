@@ -16,17 +16,6 @@ export class AuthorizationService {
     _claims: VuteqAccessClaims,
   ): Promise<VuteqLocalAuthorization> {
     const actor = identity.id;
-    const archived = await this.prisma.appUser.findUnique({
-      where: { SsoObjectId: identity.id },
-      include: { Role: { include: { Permissions: true } } },
-    });
-    if (archived?.DeletedAt) {
-      return {
-        roles: [],
-        permissions: [],
-        attributes: { localUserId: archived.Id, accessStatus: "BLOCKED" },
-      };
-    }
     const user = await this.prisma.appUser.upsert({
       where: { SsoObjectId: identity.id },
       create: {
