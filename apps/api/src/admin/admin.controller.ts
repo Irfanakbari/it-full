@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import { CurrentUser, Permissions, type VuteqUser } from "@vuteq/sso-client-nest";
 import { actorContext } from "../common/actor";
 import type { RequestWithContext } from "../common/api.types";
@@ -10,6 +10,7 @@ export class UsersController {
   constructor(private readonly service: AdminService) {}
   @Get() @Permissions("ITAM.USER_MANAGEMENT") list(@Query() query: AdminQueryDto) { return this.service.users(query); }
   @Patch(":id/authorization") @Permissions("ITAM.USER_MANAGEMENT") update(@Param("id") id: string, @Body() body: AssignRoleDto, @Req() request: RequestWithContext, @CurrentUser() user: VuteqUser) { return this.service.assignRole(id, body, actorContext(request, user)); }
+  @Delete(":id") @Permissions("ITAM.USER_MANAGEMENT") archive(@Param("id") id: string, @Req() request: RequestWithContext, @CurrentUser() user: VuteqUser) { return this.service.archiveUser(id, actorContext(request, user)); }
 }
 
 @Controller({ path: "roles", version: "1" })

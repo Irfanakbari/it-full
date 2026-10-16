@@ -15,7 +15,9 @@ const config = {
   ],
   canCreate: false,
   canUpdate: false,
-  canDelete: false,
+  canDelete: true,
+  deletePermission: "ITAM.USER_MANAGEMENT",
+  archiveLabel: "Delete User",
   actions: [{
     label: "Authorization",
     path: "authorization",

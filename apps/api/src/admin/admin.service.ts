@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { AuditService } from "../audit/audit.service";
 import type { ActorContext } from "../common/api.types";
 import { pageMeta } from "../common/pagination.dto";
@@ -10,7 +10,7 @@ export class AdminService {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
   async users(query: AdminQueryDto) {
-    const where = { ...(query.IsActive !== undefined ? { IsActive: query.IsActive } : {}), ...(query.Name ? { Name: { contains: query.Name, mode: "insensitive" as const } } : {}), ...(query.UserName ? { UserName: { contains: query.UserName, mode: "insensitive" as const } } : {}), ...(query.RoleName ? { Role: { RoleName: query.RoleName } } : {}), ...(query.search ? { OR: [{ Name: { contains: query.search, mode: "insensitive" as const } }, { UserName: { contains: query.search, mode: "insensitive" as const } }, { Email: { contains: query.search, mode: "insensitive" as const } }] } : {}) };
+    const where = { DeletedAt: null, ...(query.IsActive !== undefined ? { IsActive: query.IsActive } : {}), ...(query.Name ? { Name: { contains: query.Name, mode: "insensitive" as const } } : {}), ...(query.UserName ? { UserName: { contains: query.UserName, mode: "insensitive" as const } } : {}), ...(query.RoleName ? { Role: { RoleName: query.RoleName } } : {}), ...(query.search ? { OR: [{ Name: { contains: query.search, mode: "insensitive" as const } }, { UserName: { contains: query.search, mode: "insensitive" as const } }, { Email: { contains: query.search, mode: "insensitive" as const } }] } : {}) };
     const [data, totalItems] = await Promise.all([
       this.prisma.appUser.findMany({ where, include: { Role: true }, skip: (query.page - 1) * query.limit, take: query.limit, orderBy: { Name: "asc" } }),
       this.prisma.appUser.count({ where }),
@@ -19,10 +19,21 @@ export class AdminService {
   }
 
   async assignRole(id: string, body: AssignRoleDto, actor: ActorContext) {
-    const before = await this.prisma.appUser.findUnique({ where: { Id: id }, include: { Role: true } });
+    const before = await this.prisma.appUser.findFirst({ where: { Id: id, DeletedAt: null }, include: { Role: true } });
     if (!before) throw new NotFoundException("User not found");
     const result = await this.audit.execute({ functionId: "USER_ROLE_UPDATE", functionName: "Update user authorization", sourceType: "AppUser", sourceId: id, action: "UPDATE_AUTHORIZATION", actor, before, operation: (tx) => tx.appUser.update({ where: { Id: id }, data: { RoleId: body.RoleId ?? null, IsActive: body.IsActive, UpdatedBy: actor.Actor }, include: { Role: true } }) });
     return { data: result, message: "User authorization updated" };
+  }
+
+  async archiveUser(id: string, actor: ActorContext) {
+    const before = await this.prisma.appUser.findFirst({ where: { Id: id, DeletedAt: null }, include: { Role: true } });
+    if (!before) throw new NotFoundException("User not found");
+    if (before.SsoObjectId === actor.Actor) throw new ConflictException("You cannot archive your own user account");
+    const result = await this.audit.execute({
+      functionId: "USER_ARCHIVE", functionName: "Archive user", sourceType: "AppUser", sourceId: id, action: "ARCHIVE", actor, before,
+      operation: (tx) => tx.appUser.update({ where: { Id: id }, data: { DeletedAt: new Date(), DeletedBy: actor.Actor, IsActive: false, RoleId: null, UpdatedBy: actor.Actor }, include: { Role: true } }),
+    });
+    return { data: result, message: "User archived successfully" };
   }
 
   async roles(query: AdminQueryDto) {
