@@ -13,53 +13,41 @@ const target = {
   Email: "target@vuteq.co.id",
   PhoneNumber: "08123456789",
   IsActive: true,
-  DeletedAt: null,
   Role: { Id: 1, RoleName: "USER" },
 };
 
-describe("AdminService user archival", () => {
+describe("AdminService user deletion", () => {
   function setup(user: typeof target | null = target) {
-    const tx = { appUser: { update: jest.fn().mockResolvedValue({ ...target, SsoObjectId: `archived:${target.Id}`, Email: null, PhoneNumber: null, IsActive: false, DeletedAt: new Date(), Role: null }) } };
-    const prisma = { appUser: { findFirst: jest.fn().mockResolvedValue(user) } };
+    const tx = { appUser: { delete: jest.fn().mockResolvedValue(target) } };
+    const prisma = { appUser: { findUnique: jest.fn().mockResolvedValue(user) } };
     const audit = { execute: jest.fn(async (input: { operation: (transaction: typeof tx) => Promise<unknown> }) => input.operation(tx)) };
     const service = new AdminService(prisma as unknown as PrismaService, audit as unknown as AuditService);
     return { service, prisma, audit, tx };
   }
 
-  it("archives the old account and releases SSO identity fields for re-registration", async () => {
+  it("deletes the user account permanently ala ANSEI", async () => {
     const { service, audit, tx } = setup();
 
-    const result = await service.archiveUser(target.Id, actor);
+    const result = await service.deleteUser(target.Id, actor);
 
-    expect(result.message).toBe("User archived successfully");
-    expect(audit.execute).toHaveBeenCalledWith(expect.objectContaining({ functionId: "USER_ARCHIVE", action: "ARCHIVE", before: target }));
-    expect(tx.appUser.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { Id: target.Id },
-      data: expect.objectContaining({
-        SsoObjectId: `archived:${target.Id}`,
-        Email: null,
-        PhoneNumber: null,
-        IsActive: false,
-        RoleId: null,
-        DeletedBy: actor.Actor,
-        UpdatedBy: actor.Actor,
-        DeletedAt: expect.any(Date),
-      }),
-    }));
+    expect(result.message).toBe("User deleted successfully");
+    expect(audit.execute).toHaveBeenCalledWith(expect.objectContaining({ functionId: "USER_DELETE", action: "DELETE", before: target }));
+    expect(tx.appUser.delete).toHaveBeenCalledWith({ where: { Id: target.Id } });
   });
 
   it("prevents deleting the current account", async () => {
     const { service, audit, tx } = setup({ ...target, SsoObjectId: actor.Actor });
 
-    await expect(service.archiveUser(target.Id, actor)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.deleteUser(target.Id, actor)).rejects.toBeInstanceOf(ConflictException);
     expect(audit.execute).not.toHaveBeenCalled();
-    expect(tx.appUser.update).not.toHaveBeenCalled();
+    expect(tx.appUser.delete).not.toHaveBeenCalled();
   });
 
-  it("does not archive missing or already archived accounts", async () => {
+  it("does not delete missing accounts", async () => {
     const { service, audit } = setup(null);
 
-    await expect(service.archiveUser(target.Id, actor)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.deleteUser(target.Id, actor)).rejects.toBeInstanceOf(NotFoundException);
     expect(audit.execute).not.toHaveBeenCalled();
   });
 });
+

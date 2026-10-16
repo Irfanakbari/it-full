@@ -83,13 +83,10 @@ model AppUser {
   CreatedBy   String
   UpdatedAt   DateTime  @updatedAt
   UpdatedBy   String
-  DeletedAt   DateTime?
-  DeletedBy   String?
   AuthLogs    AuthLog[]
 
   @@index([RoleId])
   @@index([IsActive])
-  @@index([DeletedAt])
 }
 
 model Category {
