@@ -64,10 +64,11 @@ export async function GET(request: Request) {
     }
     const profileData = profile.envelope?.data;
     const globalSuper = session.globalRoles.includes("SUPER_ADMINISTRATOR");
+    const globalRoAdmin = session.globalRoles.includes("RO_ADMINISTRATOR");
     const roleName = globalSuper
       ? "SUPER"
-      : (profileData?.LocalRole ?? profileData?.RoleName ?? null);
-    const accessStatus = globalSuper
+      : (profileData?.LocalRole ?? profileData?.RoleName ?? (globalRoAdmin ? "VIEWER" : null));
+    const accessStatus = globalSuper || (globalRoAdmin && roleName === "VIEWER")
       ? "ACTIVE"
       : (roleName ? (profileData?.AccessStatus ?? "ACTIVE") : "PENDING");
 

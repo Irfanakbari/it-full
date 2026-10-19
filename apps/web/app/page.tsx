@@ -23,11 +23,14 @@ export default function LoginPage() {
     const isGlobalSuper =
       (session.roles ?? []).includes("SUPER_ADMINISTRATOR") ||
       (session.globalRoles ?? []).includes("SUPER_ADMINISTRATOR");
+    const isGlobalRoAdmin =
+      (session.roles ?? []).includes("RO_ADMINISTRATOR") ||
+      (session.globalRoles ?? []).includes("RO_ADMINISTRATOR");
 
-    const hasRole = Boolean(session.roles.length > 0 || profile?.RoleName);
-    if (!isGlobalSuper && (profile?.AccessStatus === "PENDING" || !hasRole)) {
+    const hasRole = Boolean(session.roles.length > 0 || profile?.RoleName || isGlobalRoAdmin);
+    if (!isGlobalSuper && !isGlobalRoAdmin && (profile?.AccessStatus === "PENDING" || !hasRole)) {
       router.replace("/auth/pending-account");
-    } else if (isGlobalSuper || profile?.AccessStatus === "ACTIVE" || hasRole) {
+    } else if (isGlobalSuper || isGlobalRoAdmin || profile?.AccessStatus === "ACTIVE" || hasRole) {
       router.replace("/apps");
     } else {
       router.replace("/auth/error");

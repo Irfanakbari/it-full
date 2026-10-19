@@ -33,6 +33,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'ITAM.USER_MANAGEMENT', 'ITAM.SYSTEM_LOG_READ',
   ].includes(permission)),
   AUDITOR: permissions.filter((permission) => permission.endsWith('_READ')),
+  VIEWER: permissions.filter((permission) => permission.endsWith('_READ')),
 };
 
 const developmentCategories = [

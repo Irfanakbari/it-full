@@ -75,9 +75,12 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
       const isGlobalSuper =
         (session?.roles ?? []).includes("SUPER_ADMINISTRATOR") ||
         (session?.globalRoles ?? []).includes("SUPER_ADMINISTRATOR");
+      const isGlobalRoAdmin =
+        (session?.roles ?? []).includes("RO_ADMINISTRATOR") ||
+        (session?.globalRoles ?? []).includes("RO_ADMINISTRATOR");
 
-      const hasRole = Boolean(session.roles.length > 0 || profile?.RoleName);
-      if (!isGlobalSuper && (profile?.AccessStatus === "PENDING" || !hasRole)) {
+      const hasRole = Boolean(session.roles.length > 0 || profile?.RoleName || isGlobalRoAdmin);
+      if (!isGlobalSuper && !isGlobalRoAdmin && (profile?.AccessStatus === "PENDING" || !hasRole)) {
         router.replace("/auth/pending-account");
         return;
       }
@@ -96,7 +99,7 @@ export default function AppsLayout({ children }: { children: React.ReactNode }) 
             DeptPermission: [],
             RoleName: isGlobalSuper
               ? "SUPER"
-              : (session.roles[0] ?? profile?.RoleName ?? ""),
+              : (session.roles[0] ?? profile?.RoleName ?? (isGlobalRoAdmin ? "VIEWER" : "")),
             Permission: session.permissions,
             GlobalRoles: session.globalRoles,
           },
